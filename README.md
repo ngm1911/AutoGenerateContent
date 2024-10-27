@@ -1,4 +1,4 @@
-# BlazorCodeBase
+# AutoGenerateContent
 
 ## Technical
 - WPF MVVM (CommunityToolkit.Mvvm)
