@@ -4,9 +4,31 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AutoGenerateContent"
+        xmlns:viewmodel="clr-namespace:AutoGenerateContent.ViewModel"
+        xmlns:wpf="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        d:DataContext="{d:DesignInstance Type=viewmodel:MainWindowViewModel}"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <TextBlock Text="Test UI"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="7*"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Column="0">
+            <TextBox Text="{Binding Prompt}"/>
+            <Button Height="50" Width="100"
+                    Command="{Binding StartCommand}">
+                <Button.Content>
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox IsChecked="{Binding Auto}" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding StateMachine.State}"/>
+                    </StackPanel>
+                </Button.Content>
+            </Button>
+        </StackPanel>
+
+        <wpf:WebView2 Grid.Column="1" Name="webView">
+        </wpf:WebView2>
     </Grid>
 </Window>

@@ -1,4 +1,5 @@
 ﻿using AutoGenerateContent.DatabaseContext;
+using AutoGenerateContent.ViewModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -21,7 +22,8 @@ namespace AutoGenerateContent
             AppHost = Host.CreateDefaultBuilder()
                 .ConfigureServices((HostBuilderContext, services) =>
                 {
-                    services.AddDbContext<SQLiteContext>(options => options.UseSqlite("Data Source=SQLiteDb.db"));
+                    services.AddDbContext<SQLiteContext>(options => options.UseSqlite("Data Source=SQLiteDb.db"))
+                            .AddSingleton<MainWindowViewModel>();
 
                     Log.Logger = new LoggerConfiguration()
                             .WriteTo.File("Logs/.txt", rollingInterval: RollingInterval.Day)
