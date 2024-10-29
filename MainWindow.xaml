@@ -3,10 +3,31 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:AutoGenerateContent"
+        xmlns:local="clr-namespace:AutoGenerateContent.Views"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="750" Width="1200">
+        
     <Grid>
-        <TextBlock Text="Test UI"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2.5*"/>
+            <ColumnDefinition Width="7.5*"/>
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="1*"/>
+            <RowDefinition Height="6*"/>
+            <RowDefinition Height="1*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="" Grid.Column="1" Background="LightBlue"/>
+        <TextBlock Text="" Grid.Column="0" Grid.Row="0" Background="LightGray"/>
+
+        <local:SideBar Grid.Column="0" Grid.Row="1" Background="DarkGray"/>
+
+        <TextBlock Text="" Grid.Column="0" Grid.Row="2" Background="LightGray"/>
+        
+        
+        <TextBlock Text="" Grid.Column="1" Grid.Row="0" Grid.RowSpan="5" Background="LightBlue" 
+               VerticalAlignment="Center" HorizontalAlignment="Center"/>
     </Grid>
 </Window>
