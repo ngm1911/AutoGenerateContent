@@ -15,4 +15,11 @@ namespace AutoGenerateContent.Event
         {
         }
     }
+
+    public class SearchKeyword : ValueChangedMessage<string>
+    {
+        public SearchKeyword(string keyword) : base(keyword)
+        {
+        }
+    }
 }

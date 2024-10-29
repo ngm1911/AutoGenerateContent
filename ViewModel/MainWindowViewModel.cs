@@ -61,16 +61,20 @@ namespace AutoGenerateContent.ViewModel
         {
             await Task.Delay(1000);
             OnPropertyChanged(nameof(StateMachine));
-            if (Auto) 
+            if (Auto)
+            {
                 await StateMachine.FireAsync(Trigger.Next);
+            }
         }
         
         private async Task OnSearchKeyword()
         {   
             await Task.Delay(1000);
             OnPropertyChanged(nameof(StateMachine));
-            if (Auto) 
-                await StateMachine.FireAsync(Trigger.Next);
+            if (Auto)
+            {
+                WeakReferenceMessenger.Default.Send<SearchKeyword>(new(Prompt));
+            }
         }
         
         private async Task OnAskChatGpt()
@@ -83,25 +87,33 @@ namespace AutoGenerateContent.ViewModel
         {
             await Task.Delay(1000);
             OnPropertyChanged(nameof(StateMachine));
-            if (Auto) 
+            if (Auto)
+            {
                 await StateMachine.FireAsync(Trigger.Next);
+            }
         }
         
         private async Task OnFinish()
         {
             await Task.Delay(1000);
             OnPropertyChanged(nameof(StateMachine));
-            if (Auto) 
+            if (Auto)
+            {
                 await StateMachine.FireAsync(Trigger.Start);
+            }
         }
 
         [RelayCommand]
         public async Task Start()
         {
-            if(StateMachine.CanFire(Trigger.Next))
+            if (StateMachine.CanFire(Trigger.Next))
+            {
                 await StateMachine.FireAsync(Trigger.Next);
+            }
             else if (StateMachine.CanFire(Trigger.Start))
+            {
                 await StateMachine.FireAsync(Trigger.Start);
+            }
         }
     }
 

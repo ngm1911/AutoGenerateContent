@@ -3,32 +3,36 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:AutoGenerateContent"
+        xmlns:local="clr-namespace:AutoGenerateContent.Views"
         xmlns:viewmodel="clr-namespace:AutoGenerateContent.ViewModel"
         xmlns:wpf="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         d:DataContext="{d:DesignInstance Type=viewmodel:MainWindowViewModel}"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="750" Width="1200">
+        
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="3*"/>
-            <ColumnDefinition Width="7*"/>
+            <ColumnDefinition Width="2.5*"/>
+            <ColumnDefinition Width="7.5*"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Column="0">
-            <TextBox Text="{Binding Prompt}"/>
-            <Button Height="50" Width="100"
-                    Command="{Binding StartCommand}">
-                <Button.Content>
-                    <StackPanel Orientation="Horizontal">
-                        <CheckBox IsChecked="{Binding Auto}" Margin="0,0,5,0"/>
-                        <TextBlock Text="{Binding StateMachine.State}"/>
-                    </StackPanel>
-                </Button.Content>
-            </Button>
-        </StackPanel>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="6*"/>
+            <RowDefinition Height="1*"/>
+        </Grid.RowDefinitions>
 
-        <wpf:WebView2 Grid.Column="1" Name="webView">
+        <local:SideBar Grid.Column="0" Grid.Row="0" Background="DarkGray"/>
+
+        <Button Height="50" Width="100" Grid.Column="0" Grid.Row="2" Command="{Binding StartCommand}">
+            <Button.Content>
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox IsChecked="{Binding Auto}" Margin="0,0,5,0"/>
+                    <TextBlock Text="{Binding StateMachine.State}"/>
+                </StackPanel>
+            </Button.Content>
+        </Button>
+
+        <wpf:WebView2 Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" Name="webView">
         </wpf:WebView2>
     </Grid>
 </Window>

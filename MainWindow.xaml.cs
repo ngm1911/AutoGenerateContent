@@ -2,10 +2,7 @@
 using AutoGenerateContent.ViewModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Web.WebView2.Core;
-using System;
-using System.Diagnostics;
 using System.IO;
 using System.Windows;
 
@@ -26,10 +23,31 @@ namespace AutoGenerateContent
 
             _syncContext = SynchronizationContext.Current;
 
+            WeakReferenceMessenger.Default.Register<SearchKeyword>(this, async (r, m) =>
+            {
+                CancellationTokenSource tokenSource = new CancellationTokenSource();
+                _syncContext!.Post(_ =>
+                {
+                    webView.CoreWebView2.NavigationCompleted += navigateGoogle;
+                    webView.CoreWebView2.Navigate("https://www.google.com/");
+                }, null);
+
+                async void navigateGoogle(object sender, CoreWebView2NavigationCompletedEventArgs e)
+                {
+                    webView.CoreWebView2.NavigationCompleted -= navigateGoogle;
+
+                    //await InsertPromptAndSubmit(m.Value);
+
+                    //webView.CoreWebView2.WebMessageReceived -= AnswerReceived;
+                    //webView.CoreWebView2.WebMessageReceived += AnswerReceived;
+                }
+
+            });
+
             WeakReferenceMessenger.Default.Register<AskChatGpt>(this, async (r, m) =>
             {
                 CancellationTokenSource tokenSource = new CancellationTokenSource();
-                _syncContext.Post(_ =>
+                _syncContext!.Post(_ =>
                 {
                     webView.CoreWebView2.NavigationCompleted += navigateChatGpt;
                     webView.CoreWebView2.Navigate("https://chatgpt.com/");
@@ -69,7 +87,10 @@ namespace AutoGenerateContent
 
                         var text = await webView.ExecuteScriptAsync(@"let targets = document.getElementsByClassName('group/conversation-turn');
                                                                       targets[targets.length - 1].innerText");
-                        MessageBox.Show(text);
+                        if (string.IsNullOrWhiteSpace(text) && text != "null")
+                        {
+                            MessageBox.Show(text);
+                        }
                     }
                 }
             });
@@ -85,7 +106,6 @@ namespace AutoGenerateContent
                 null,
                 tempPath
             ));
-            webView.Source = new Uri("https://www.google.com/");
             webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2InitializationCompleted;
         }
 
