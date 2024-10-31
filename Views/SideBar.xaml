@@ -4,8 +4,11 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:AutoGenerateContent.Views"
+             xmlns:viewmodel="clr-namespace:AutoGenerateContent.ViewModel"
              mc:Ignorable="d"
-             d:DesignHeight="562.5" d:DesignWidth="300">
+             d:DataContext="{d:DesignInstance Type=viewmodel:SideBarViewModel}"
+             d:DesignHeight="562.5" d:DesignWidth="300"
+    xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2">
     <UserControl.Resources>
         <Style x:Key="FocusVisual">
             <Setter Property="Control.Template">
@@ -62,6 +65,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -81,15 +85,18 @@
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="0,1,1,1">
-                <ComboBox FontSize="18" FontFamily="Arial" SelectedIndex="0">
-                    <ComboBoxItem Content="Du lịch Sapa" />
-                    <ComboBoxItem Content="Đặc sản Bình Định" />
-                    <ComboBoxItem Content="Vi vu Nha Trang" />
-                    <ComboBoxItem Content="Check in Hà Nội" />
+                <ComboBox Style="{DynamicResource ComboBoxStyle1}" FontSize="18" FontFamily="Arial" 
+                          SelectedItem="{Binding SelectedConfig, Mode=TwoWay}" 
+                          ItemsSource="{Binding Configs, Mode=TwoWay }">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
                 </ComboBox>
             </Border>
 
-            <Border BorderBrush="Gray" BorderThickness="1,0,2,2" Grid.Row="1">
+            <!--<Border BorderBrush="Gray" BorderThickness="1,0,2,2" Grid.Row="1">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -112,13 +119,14 @@
                     </Grid>
                     <TextBlock Grid.Row="1" FontSize="18" FontFamily="Arial" Text=" Total : 4"/>
                 </Grid>
-            </Border>
+            </Border>-->
         </Grid>
 
         <TextBlock Text="Name" Grid.Row="1" FontSize="18" FontFamily="Arial" Margin="15,10,0,0"/>
         <Border BorderBrush="Gray" BorderThickness="2,2,2,2" CornerRadius="5" Grid.Row="1" Margin="15,35,0,0" Width="150" Height="30" Background="White" VerticalAlignment="Center" HorizontalAlignment="Left">
             <Grid >
-                <TextBox Width="150" Height="30"  FontSize="18" BorderThickness="0" Background="Transparent" FontFamily="Arial" x:Name="NameTxt" Margin="2"/>
+                <TextBox Width="150" Height="30"  FontSize="18" BorderThickness="0" Background="Transparent" FontFamily="Arial" x:Name="NameTxt" Margin="2"
+                         Text="{Binding SelectedConfig.Description, Mode=TwoWay}"/>
                 <TextBlock IsHitTestVisible="False" Text="Name" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0" Foreground="DarkGray">
                     <TextBlock.Style>
                         <Style TargetType="{x:Type TextBlock}">
@@ -137,6 +145,7 @@
         <Border BorderBrush="Gray" BorderThickness="2,2,2,2" CornerRadius="5" Grid.Row="2" Margin="15,35,0,0" Width="230" Height="60" Background="White" VerticalAlignment="Center" HorizontalAlignment="Left">
             <Grid >
                 <TextBox  Width="230" Height="60" FontSize="18" FontFamily="Arial" x:Name="SearchTextTxt" Margin="2"
+                          Text="{Binding SelectedConfig.SearchText, Mode=TwoWay}"
                       AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent"/>
                 <TextBlock IsHitTestVisible="False" FontSize="18" Text="SearchText" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0" Foreground="DarkGray">
                     <TextBlock.Style>
@@ -157,6 +166,7 @@
         <Border BorderBrush="Gray" BorderThickness="2,2,2,2" CornerRadius="5" Grid.Row="3" Margin="15,35,0,0" Width="150" Height="30" Background="White" VerticalAlignment="Center" HorizontalAlignment="Left">
             <Grid >
                 <TextBox Width="150" Height="30"  FontSize="18" BorderThickness="0" Background="Transparent" FontFamily="Arial" x:Name="PromptTextTxt" Margin="2"
+                         Text="{Binding SelectedConfig.PromptText, Mode=TwoWay}"
                          AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
                 <TextBlock IsHitTestVisible="False" Text="PromptText" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0" Foreground="DarkGray">
                     <TextBlock.Style>
@@ -177,7 +187,8 @@
         <Border BorderBrush="Gray" BorderThickness="2,2,2,2" CornerRadius="5" Grid.Row="4" Margin="15,35,0,0" Width="150" Height="30" Background="White" VerticalAlignment="Center" HorizontalAlignment="Left">
             <Grid >
                 <TextBox Width="150" Height="30"  FontSize="18" BorderThickness="0" Background="Transparent" FontFamily="Arial" x:Name="PromptCompleteTxt" Margin="2"
-                 AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+                         Text="{Binding SelectedConfig.PromptComplete, Mode=TwoWay}"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
                 <TextBlock IsHitTestVisible="False" Text="PromptComplete" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0" Foreground="DarkGray">
                     <TextBlock.Style>
                         <Style TargetType="{x:Type TextBlock}">
@@ -197,7 +208,8 @@
         <Border BorderBrush="Gray" BorderThickness="2,2,2,2" CornerRadius="5" Grid.Row="5" Margin="15,35,0,0" Width="150" Height="30" Background="White" VerticalAlignment="Center" HorizontalAlignment="Left">
             <Grid >
                 <TextBox Width="150" Height="30"  FontSize="18" BorderThickness="0" Background="Transparent" FontFamily="Arial" x:Name="SearchImageTxt" Margin="2"
-                    AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+                         Text="{Binding SelectedConfig.SearchImageText, Mode=TwoWay}"   
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
                 <TextBlock IsHitTestVisible="False" Text="SearchImage" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0" Foreground="DarkGray">
                     <TextBlock.Style>
                         <Style TargetType="{x:Type TextBlock}">
@@ -214,10 +226,10 @@
         </Border>
         <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Center" >
             <Border Width="110" Height="40" BorderBrush="LightGray" BorderThickness="2,2,2,2" Background="LightGray" CornerRadius="5" Margin="10,40,0,0" >
-                <Button Width="110" Height="40" FontSize="18" FontFamily="Arial" VerticalAlignment="Center" BorderThickness="0" Background="LightGray">Save</Button>
+                <Button Width="110" Height="40" FontSize="18" FontFamily="Arial" VerticalAlignment="Center" BorderThickness="0" Background="LightGray" Command="{Binding SaveConfigCommand}">Save</Button>
             </Border>
             <Border Width="110" Height="40" BorderBrush="LightGray" BorderThickness="2,2,2,2" Background="LightGray" CornerRadius="5" Margin="30,40,0,0" >
-                <Button Width="110" Height="40" FontSize="18" FontFamily="Arial" VerticalAlignment="Center" BorderThickness="0" Background="LightGray">Delete</Button>
+                <Button Width="110" Height="40" FontSize="18" FontFamily="Arial" VerticalAlignment="Center" BorderThickness="0" Background="LightGray" Command="{Binding DeleteConfigCommand}">Delete</Button>
             </Border>
         </StackPanel>
     </Grid>

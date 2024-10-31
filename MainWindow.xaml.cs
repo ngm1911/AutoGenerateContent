@@ -21,6 +21,7 @@ namespace AutoGenerateContent
 
             DataContext = App.AppHost.Services.GetRequiredService<MainWindowViewModel>();
 
+
             _syncContext = SynchronizationContext.Current;
 
             WeakReferenceMessenger.Default.Register<SearchKeyword>(this, async (r, m) =>

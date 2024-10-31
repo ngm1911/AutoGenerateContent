@@ -23,7 +23,8 @@ namespace AutoGenerateContent
                 .ConfigureServices((HostBuilderContext, services) =>
                 {
                     services.AddDbContext<SQLiteContext>(options => options.UseSqlite("Data Source=SQLiteDb.db"))
-                            .AddSingleton<MainWindowViewModel>();
+                            .AddScoped<MainWindowViewModel>()
+                            .AddScoped<SideBarViewModel>();
 
                     Log.Logger = new LoggerConfiguration()
                             .WriteTo.File("Logs/.txt", rollingInterval: RollingInterval.Day)
