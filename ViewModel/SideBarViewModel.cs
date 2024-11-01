@@ -12,68 +12,36 @@ namespace AutoGenerateContent.ViewModel
         private readonly SQLiteContext _context;
 
         [ObservableProperty]
-        public ObservableCollection<Config> _Configs;
+        ObservableCollection<KeyValuePair<int, string>> configs;
 
         [ObservableProperty]
-        public ObservableCollection<ConfigViewModel> _ConfigViewModels;
+        int selectedConfigId;
 
         [ObservableProperty]
-        private int selectedConfigId;
-
-        partial void OnSelectedConfigIdChanged(int value)
-        {
-            LoadSelectedConfig();
-        }
-
-        [ObservableProperty]
-        Config _selectedConfig;
+        Config selectedConfig;
 
         public SideBarViewModel(SQLiteContext context)
         {
             _context = context;
-
             LoadConfigs();
         }
 
-        private void LoadConfigs() {
-            ConfigViewModels = new ObservableCollection<ConfigViewModel>(
-                _context.configs.Select(c => new ConfigViewModel
-                {
-                    Id = c.Id,
-                    Name = c.Name
-                }).ToList()
-            );
-
-            var defaultConfig = new ConfigViewModel()
-            {
-                Id = -1,
-                Name = "Create New Configs",
-            };
-            ConfigViewModels.Insert(0, defaultConfig);
-        }
-
-        private void LoadSelectedConfig()
+        partial void OnSelectedConfigIdChanged(int value)
         {
-            SelectedConfig = _context.configs.FirstOrDefault(c => c.Id == SelectedConfigId);
-            if(SelectedConfig == null)
-            {
-                SelectedConfig = new Config()
-                {
-                    Id = -1,
-                }; 
-            }
+            _context.configs.FirstOrDefaultAsync(c => c.Id == SelectedConfigId)
+                            .ContinueWith(t =>
+                            {
+                                SelectedConfig = t.Result ?? new Config()
+                                {
+                                    Id = -1
+                                };
+                            });
         }
 
         [RelayCommand]
         public async Task SaveConfig()
         { 
-            var result = _context.configs.Any(x => x.Id == SelectedConfig.Id);
-
-            if (result == true)
-            {
-                _context.configs.Update(SelectedConfig);
-            }
-            else
+            if (SelectedConfig.Id == -1)
             {
                 var newConfig = new Config()
                 {
@@ -83,31 +51,35 @@ namespace AutoGenerateContent.ViewModel
                     PromptComplete = SelectedConfig.PromptComplete,
                     SearchImageText = SelectedConfig.SearchImageText,
                 };
-                _context.configs.Add(newConfig);
+                await _context.configs.AddAsync(newConfig);
             }
 
-            SelectedConfig = null;
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             LoadConfigs();
         }
 
         [RelayCommand]
         public async Task DeleteConfig()
         {
-            var result = _context.configs.Any(x => x.Id == SelectedConfig.Id);
-            if (result == true)
+            if (SelectedConfig.Id != -1)
             {
                 _context.configs.Remove(SelectedConfig);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
-            SelectedConfig = null;
             LoadConfigs();
         }
 
-        [RelayCommand]
-        public async Task CreateNewConfig()
+        private void LoadConfigs()
         {
-            SelectedConfig = new Config();
+            _context.configs.Select(c => new KeyValuePair<int, string>(c.Id, c.Name))
+                            .ToListAsync()
+                            .ContinueWith(t =>
+                            {
+                                SelectedConfigId = 0;
+                                Configs = new ObservableCollection<KeyValuePair<int, string>>(t.Result);
+                                Configs.Insert(0, new KeyValuePair<int, string>(-1, "Create New Configs"));
+                                SelectedConfigId = -1;
+                            });
         }
     }
 }
