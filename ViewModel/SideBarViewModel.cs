@@ -2,6 +2,7 @@
 using AutoGenerateContent.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
 
 namespace AutoGenerateContent.ViewModel
@@ -10,94 +11,97 @@ namespace AutoGenerateContent.ViewModel
     {
         private readonly SQLiteContext _context;
 
-        private ObservableCollection<Config> _Configs;
-        public ObservableCollection<Config> Configs {
-            get => _Configs;
-            set
-            {
-                SetProperty(ref _Configs, value);
-                OnPropertyChanged(nameof(Configs));
-            }
-        }
+        [ObservableProperty]
+        public ObservableCollection<Config> _Configs;
 
-        private Config _selectedConfig;
+        [ObservableProperty]
+        public ObservableCollection<ConfigViewModel> _ConfigViewModels;
 
-        public Config SelectedConfig
+        [ObservableProperty]
+        private int selectedConfigId;
+
+        partial void OnSelectedConfigIdChanged(int value)
         {
-            get => _selectedConfig;
-            set
-            {
-                SetProperty(ref _selectedConfig, value);
-                OnPropertyChanged(nameof(IsSelectedConfig));
-            }
+            LoadSelectedConfig();
         }
 
-        public bool IsSelectedConfig => SelectedConfig != null;
+        [ObservableProperty]
+        Config _selectedConfig;
 
-        public SideBarViewModel(SQLiteContext context) : base()
+        public SideBarViewModel(SQLiteContext context)
         {
             _context = context;
 
-            Configs = new ObservableCollection<Config>(_context.configs.ToList());
-
-            var newConfig = new Config()
-            {
-                Id = -1,
-                Name = "Create New Config"
-            };
-
-            Configs.Insert(0, newConfig);
+            LoadConfigs();
         }
 
-        public async Task<Config> ResetNewConfig()
-        {
-            var newConfig = new Config()
+        private void LoadConfigs() {
+            ConfigViewModels = new ObservableCollection<ConfigViewModel>(
+                _context.configs.Select(c => new ConfigViewModel
+                {
+                    Id = c.Id,
+                    Name = c.Name
+                }).ToList()
+            );
+
+            var defaultConfig = new ConfigViewModel()
             {
                 Id = -1,
-                Name = "Create New Config"
+                Name = "Create New Configs",
             };
+            ConfigViewModels.Insert(0, defaultConfig);
+        }
 
-            return newConfig;
+        private void LoadSelectedConfig()
+        {
+            SelectedConfig = _context.configs.FirstOrDefault(c => c.Id == SelectedConfigId);
+            if(SelectedConfig == null)
+            {
+                SelectedConfig = new Config()
+                {
+                    Id = -1,
+                }; 
+            }
         }
 
         [RelayCommand]
         public async Task SaveConfig()
-        {
-            if (SelectedConfig.Id == -1)
+        { 
+            var result = _context.configs.Any(x => x.Id == SelectedConfig.Id);
+
+            if (result == true)
             {
-                var newConfig = new Config();
-
-                newConfig.Name = SelectedConfig.Name;
-                newConfig.SearchText = SelectedConfig.SearchText;
-                newConfig.PromptText = SelectedConfig.PromptText;
-                newConfig.PromptComplete = SelectedConfig.PromptComplete;
-                newConfig.SearchImageText = SelectedConfig.SearchImageText;
-
-                _context.configs.Add(newConfig);
-                _context.SaveChanges();
+                _context.configs.Update(SelectedConfig);
             }
             else
             {
-                _context.configs.Update(SelectedConfig);
-                _context.SaveChanges();
-               
+                var newConfig = new Config()
+                {
+                    Name = SelectedConfig.Name,
+                    SearchText = SelectedConfig.SearchText,
+                    PromptText = SelectedConfig.PromptText,
+                    PromptComplete = SelectedConfig.PromptComplete,
+                    SearchImageText = SelectedConfig.SearchImageText,
+                };
+                _context.configs.Add(newConfig);
             }
 
-            Configs = new ObservableCollection<Config>(_context.configs.ToList());
-            SelectedConfig = await ResetNewConfig();
-            Configs.Insert(0, SelectedConfig);
+            SelectedConfig = null;
+            _context.SaveChanges();
+            LoadConfigs();
         }
 
         [RelayCommand]
         public async Task DeleteConfig()
         {
-            if (SelectedConfig.Id != -1)
+            var result = _context.configs.Any(x => x.Id == SelectedConfig.Id);
+            if (result == true)
             {
                 _context.configs.Remove(SelectedConfig);
                 _context.SaveChanges();
-                Configs.Remove(SelectedConfig);
-                SelectedConfig = null;
             }
+            SelectedConfig = null;
+            LoadConfigs();
         }
 
         [RelayCommand]
