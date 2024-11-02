@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
+using System.Windows;
 
 namespace AutoGenerateContent.ViewModel
 {
@@ -35,9 +36,20 @@ namespace AutoGenerateContent.ViewModel
                                 {
                                     Id = -1
                                 };
+
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    DeleteConfigCommand.NotifyCanExecuteChanged();
+                                });
                             });
         }
 
+        partial void OnSelectedConfigChanged(Config value)
+        {
+            
+        }
+
+        //private bool canSaveClick() => selectedConfig
         [RelayCommand]
         public async Task SaveConfig()
         { 
@@ -58,7 +70,9 @@ namespace AutoGenerateContent.ViewModel
             LoadConfigs();
         }
 
-        [RelayCommand]
+        private bool canDeleteClick() => selectedConfigId != null && selectedConfigId != -1;
+
+        [RelayCommand(CanExecute = nameof(canDeleteClick))]
         public async Task DeleteConfig()
         {
             if (SelectedConfig.Id != -1)
