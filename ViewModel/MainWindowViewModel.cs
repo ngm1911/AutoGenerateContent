@@ -156,7 +156,7 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (GoogleContents.Count > 0)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents)));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault())));
             }
         }
         
