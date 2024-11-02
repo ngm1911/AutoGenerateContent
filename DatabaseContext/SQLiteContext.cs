@@ -18,8 +18,8 @@ namespace AutoGenerateContent.DatabaseContext
                           .EnableDetailedErrors()
                           .EnableSensitiveDataLogging();
         }
-        public DbSet<Config> configs { get; set; }
 
+        public DbSet<Config> Configs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
