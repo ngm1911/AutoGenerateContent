@@ -28,7 +28,7 @@ namespace AutoGenerateContent.ViewModel
 
         partial void OnSelectedConfigIdChanged(int value)
         {
-            _context.configs.FirstOrDefaultAsync(c => c.Id == SelectedConfigId)
+            _context.Configs.FirstOrDefaultAsync(c => c.Id == SelectedConfigId)
                             .ContinueWith(t =>
                             {
                                 SelectedConfig = t.Result ?? new Config()
@@ -45,13 +45,13 @@ namespace AutoGenerateContent.ViewModel
             {
                 var newConfig = new Config()
                 {
-                    Name = SelectedConfig.Name,
+                    Name = SelectedConfig.Description,
                     SearchText = SelectedConfig.SearchText,
                     PromptText = SelectedConfig.PromptText,
                     PromptComplete = SelectedConfig.PromptComplete,
                     SearchImageText = SelectedConfig.SearchImageText,
                 };
-                await _context.configs.AddAsync(newConfig);
+                await _context.Configs.AddAsync(newConfig);
             }
 
             await _context.SaveChangesAsync();
@@ -63,7 +63,7 @@ namespace AutoGenerateContent.ViewModel
         {
             if (SelectedConfig.Id != -1)
             {
-                _context.configs.Remove(SelectedConfig);
+                _context.Configs.Remove(SelectedConfig);
                 await _context.SaveChangesAsync();
             }
             LoadConfigs();
@@ -71,7 +71,7 @@ namespace AutoGenerateContent.ViewModel
 
         private void LoadConfigs()
         {
-            _context.configs.Select(c => new KeyValuePair<int, string>(c.Id, c.Name))
+            _context.Configs.Select(c => new KeyValuePair<int, string>(c.Id, c.Name))
                             .ToListAsync()
                             .ContinueWith(t =>
                             {
