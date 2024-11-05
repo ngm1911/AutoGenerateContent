@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows;
 
 namespace AutoGenerateContent.ViewModel
 {
@@ -17,12 +19,37 @@ namespace AutoGenerateContent.ViewModel
         [ObservableProperty]
         int selectedConfigId;
 
-        [ObservableProperty]
-        Config selectedConfig;
+        private Config selectedConfig;
+
+        public Config SelectedConfig
+        {
+            get => selectedConfig;
+            set
+            {
+                if (selectedConfig != value)
+                {
+                    if (selectedConfig != null)
+                        selectedConfig.PropertyChanged -= SelectedConfig_PropertyChanged;
+
+                    selectedConfig = value;
+                    OnPropertyChanged(nameof(SelectedConfig));
+
+                    if (selectedConfig != null)
+                        selectedConfig.PropertyChanged += SelectedConfig_PropertyChanged;
+                }
+            }
+        }
+
+        private void SelectedConfig_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            HasUsername = true;
+
+            SaveConfigCommand.NotifyCanExecuteChanged();
+        }
 
         public SideBarViewModel(SQLiteContext context)
         {
-            _context = context;
+            _context = context; 
             LoadConfigs();
         }
 
@@ -35,17 +62,29 @@ namespace AutoGenerateContent.ViewModel
                                 {
                                     Id = -1
                                 };
+
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    HasUsername = false;
+                                    DeleteConfigCommand.NotifyCanExecuteChanged();
+                                    SaveConfigCommand.NotifyCanExecuteChanged();
+                                });
                             });
+            
         }
 
-        [RelayCommand]
-        public async Task SaveConfig()
+        public bool canSaveClick => HasUsername;
+
+        private bool HasUsername = false;
+
+        [RelayCommand(CanExecute = nameof(canSaveClick))]
+        private async Task SaveConfig()
         { 
             if (SelectedConfig.Id == -1)
             {
                 var newConfig = new Config()
                 {
-                    Name = SelectedConfig.Description,
+                    Name = SelectedConfig.Name,
                     SearchText = SelectedConfig.SearchText,
                     PromptText = SelectedConfig.PromptText,
                     PromptComplete = SelectedConfig.PromptComplete,
@@ -58,7 +97,9 @@ namespace AutoGenerateContent.ViewModel
             LoadConfigs();
         }
 
-        [RelayCommand]
+        private bool canDeleteClick() => SelectedConfigId != -1;
+
+        [RelayCommand(CanExecute = nameof(canDeleteClick))]
         public async Task DeleteConfig()
         {
             if (SelectedConfig.Id != -1)
