@@ -7,16 +7,16 @@ namespace AutoGenerateContent.Models
     {
 
         [ObservableProperty]
-        public int id;//{ get; set; }
+        public int id;
         [ObservableProperty]
-        public string? name;//{ get; set; }
+        public string? name;
         [ObservableProperty]
-        public string? searchText;// { get; set; }
+        public string? searchText;
         [ObservableProperty]
-        public string? promptText;// { get; set; }
+        public string? promptText;
         [ObservableProperty]
-        public string? promptComplete; // { get; set; }
+        public string? promptComplete;
         [ObservableProperty]
-        public string? searchImageText; // { get; set; }
+        public string? searchImageText;
     }
 }
