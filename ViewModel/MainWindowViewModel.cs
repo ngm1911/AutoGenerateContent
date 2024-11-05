@@ -3,16 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using HtmlAgilityPack;
-using Microsoft.Extensions.DependencyInjection;
-using Serilog.Sinks.File;
 using Stateless;
-using System;
-using System.Diagnostics.Metrics;
 using System.Net.Http;
-using System.Security.Policy;
-using System.Text.Encodings.Web;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Web;
 using System.Windows;
 
@@ -156,7 +148,7 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (GoogleContents.Count > 0)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault())));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents)));
             }
         }
         

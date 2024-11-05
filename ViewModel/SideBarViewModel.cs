@@ -4,8 +4,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Windows;
 
 namespace AutoGenerateContent.ViewModel
 {
@@ -19,33 +17,10 @@ namespace AutoGenerateContent.ViewModel
         [ObservableProperty]
         int selectedConfigId;
 
-        private Config selectedConfig;
-
-        public Config SelectedConfig
-        {
-            get => selectedConfig;
-            set
-            {
-                if (selectedConfig != value)
-                {
-                    if (selectedConfig != null)
-                        selectedConfig.PropertyChanged -= SelectedConfig_PropertyChanged;
-
-                    selectedConfig = value;
-                    OnPropertyChanged(nameof(SelectedConfig));
-
-                    if (selectedConfig != null)
-                        selectedConfig.PropertyChanged += SelectedConfig_PropertyChanged;
-                }
-            }
-        }
-
-        private void SelectedConfig_PropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            HasUsername = true;
-
-            SaveConfigCommand.NotifyCanExecuteChanged();
-        }
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(DeleteConfigCommand))]
+        [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
+        Config selectedConfig;
 
         public SideBarViewModel(SQLiteContext context)
         {
@@ -53,29 +28,35 @@ namespace AutoGenerateContent.ViewModel
             LoadConfigs();
         }
 
+        partial void OnSelectedConfigChanged(Config value)
+        {
+            if (value != null)
+            {
+                value.IsChanged = false;
+
+                value.PropertyChanged -= Value_PropertyChanged;
+                value.PropertyChanged += Value_PropertyChanged;
+
+                void Value_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+                {
+                    SaveConfigCommand.NotifyCanExecuteChanged();
+                }
+            }
+        }
+
         partial void OnSelectedConfigIdChanged(int value)
         {
             _context.Configs.FirstOrDefaultAsync(c => c.Id == SelectedConfigId)
-                            .ContinueWith(t =>
-                            {
-                                SelectedConfig = t.Result ?? new Config()
-                                {
-                                    Id = -1
-                                };
-
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    HasUsername = false;
-                                    DeleteConfigCommand.NotifyCanExecuteChanged();
-                                    SaveConfigCommand.NotifyCanExecuteChanged();
-                                });
-                            });
-            
+                                             .ContinueWith(t =>
+                                             {
+                                                 SelectedConfig = t.Result ?? new Config()
+                                                 {
+                                                     Id = -1
+                                                 };
+                                             }, TaskContinuationOptions.ExecuteSynchronously);
         }
 
-        public bool canSaveClick => HasUsername;
-
-        private bool HasUsername = false;
+        private bool canSaveClick => SelectedConfig.IsChanged;
 
         [RelayCommand(CanExecute = nameof(canSaveClick))]
         private async Task SaveConfig()
@@ -97,7 +78,7 @@ namespace AutoGenerateContent.ViewModel
             LoadConfigs();
         }
 
-        private bool canDeleteClick() => SelectedConfigId != -1;
+        private bool canDeleteClick => SelectedConfigId != -1;
 
         [RelayCommand(CanExecute = nameof(canDeleteClick))]
         public async Task DeleteConfig()
