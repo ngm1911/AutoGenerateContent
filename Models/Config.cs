@@ -1,17 +1,22 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AutoGenerateContent.Models
 {
-    public class Config
+    public partial class Config : ObservableObject
     {
-        public int Id { get; set; }
-        public string? Name { get; set; }
-        public string? SearchText { get; set; }
-        public string? PromptText {  get; set; }
-        public string? PromptComplete {  get; set; }
-        public string? SearchImageText { get; set; }
 
-        [NotMapped]
-        public string? Description { get; set; }
+        [ObservableProperty]
+        public int id;//{ get; set; }
+        [ObservableProperty]
+        public string? name;//{ get; set; }
+        [ObservableProperty]
+        public string? searchText;// { get; set; }
+        [ObservableProperty]
+        public string? promptText;// { get; set; }
+        [ObservableProperty]
+        public string? promptComplete; // { get; set; }
+        [ObservableProperty]
+        public string? searchImageText; // { get; set; }
     }
 }
