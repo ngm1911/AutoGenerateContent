@@ -10,7 +10,7 @@
         <Canvas>
             <TextBox FontSize="18" FontFamily="Arial" Padding="2 0 5 5" BorderThickness="0" Background="Transparent"
                      AcceptsReturn="True" TextWrapping="Wrap"
-                     Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}"
+                     Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                      x:Name="CustomTextBox"/>
 
             <TextBlock IsHitTestVisible="False" Text="{Binding PlaceholderText, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="18" Foreground="DarkGray" 

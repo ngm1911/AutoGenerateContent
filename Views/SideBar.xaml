@@ -111,23 +111,23 @@
                 </Style>
             </StackPanel.Style>
             <TextBlock Text="Name" FontSize="18" FontFamily="Arial" Margin="0,0,0,5"/>
-            <controls:CTextBox HorizontalAlignment="Left" Text="{Binding SelectedConfig.Description, Mode=TwoWay}" PlaceholderText="Enter Name" Width="170" Height="50"/>
+            <controls:CTextBox HorizontalAlignment="Left" Text="{Binding Description ,UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" PlaceholderText="Enter Name" Width="170" Height="50"/>
         </StackPanel>
 
         <TextBlock Text="SearchText" Name="SearchTxb" Grid.Row="2" FontSize="18" FontFamily="Arial" Margin="15,10,0,0"/>
-        <controls:CTextBox Grid.Row="2" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding SelectedConfig.SearchText, Mode=TwoWay}" PlaceholderText="SearchText" 
+        <controls:CTextBox Grid.Row="2" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" PlaceholderText="SearchText" 
                            Width="230" Height="70" />
 
         <TextBlock Text="PromptText" Grid.Row="3" FontSize="18" FontFamily="Arial" Margin="15,10,0,0"/>
-        <controls:CTextBox Grid.Row="3" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding SelectedConfig.PromptText, Mode=TwoWay}" PlaceholderText="PromptText" 
+        <controls:CTextBox Grid.Row="3" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding PromptText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" PlaceholderText="PromptText" 
                            Width="180" Height="50" />
 
         <TextBlock Text="PromptComplete" Grid.Row="4" FontSize="18" FontFamily="Arial" Margin="15,10,0,0"/>
-        <controls:CTextBox Grid.Row="4" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding SelectedConfig.PromptComplete, Mode=TwoWay}" PlaceholderText="PromptComplete" 
+        <controls:CTextBox Grid.Row="4" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding PromptComplete, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" PlaceholderText="PromptComplete" 
                            Width="170" Height="50" />
 
         <TextBlock Text="SearchImage" Grid.Row="5" FontSize="18" FontFamily="Arial" Margin="15,10,0,0"/>
-        <controls:CTextBox Grid.Row="5" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding SelectedConfig.SearchImageText, Mode=TwoWay}" PlaceholderText="SearchImage" 
+        <controls:CTextBox Grid.Row="5" Margin="15,35,0,0" HorizontalAlignment="Left" Text="{Binding SearchImage, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" PlaceholderText="SearchImage" 
                            Width="170" Height="50" />
         
         <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Center" >

@@ -19,11 +19,36 @@ namespace AutoGenerateContent.ViewModel
         int selectedConfigId;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(canSaveClick))]
+        [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
+        string description;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(canSaveClick))]
+        [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
+        string searchText;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(canSaveClick))]
+        [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
+        string promptText;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(canSaveClick))]
+        [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
+        string promptComplete;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(canSaveClick))]
+        [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
+        string searchImage;
+
+        [ObservableProperty]
         Config selectedConfig;
 
         public SideBarViewModel(SQLiteContext context)
         {
-            _context = context;
+            _context = context; 
             LoadConfigs();
         }
 
@@ -40,28 +65,45 @@ namespace AutoGenerateContent.ViewModel
                                 Application.Current.Dispatcher.Invoke(() =>
                                 {
                                     DeleteConfigCommand.NotifyCanExecuteChanged();
+                                    LoadSelectedConfig();
                                 });
                             });
-        }
-
-        partial void OnSelectedConfigChanged(Config value)
-        {
             
         }
 
-        //private bool canSaveClick() => selectedConfig
-        [RelayCommand]
-        public async Task SaveConfig()
+        private void LoadSelectedConfig()
+        {
+            Description = SelectedConfig.Description;
+            SearchText = SelectedConfig.SearchText;
+            PromptText = SelectedConfig.PromptText;
+            PromptComplete = SelectedConfig.PromptComplete;
+            SearchImage = SelectedConfig.SearchImageText;
+        }
+
+        public bool canSaveClick => HasUsername();
+
+        private bool HasUsername()
+        {
+            return SelectedConfigId == -1
+                ? !string.IsNullOrEmpty(Description)
+                : SearchText != SelectedConfig.SearchText
+                  || PromptText != SelectedConfig.PromptText
+                  || PromptComplete != SelectedConfig.PromptComplete
+                  || SearchImage != SelectedConfig.SearchImageText;
+        }
+
+        [RelayCommand(CanExecute = nameof(canSaveClick))]
+        private async Task SaveConfig()
         { 
             if (SelectedConfig.Id == -1)
             {
                 var newConfig = new Config()
                 {
-                    Name = SelectedConfig.Description,
-                    SearchText = SelectedConfig.SearchText,
-                    PromptText = SelectedConfig.PromptText,
-                    PromptComplete = SelectedConfig.PromptComplete,
-                    SearchImageText = SelectedConfig.SearchImageText,
+                    Name = Description,
+                    SearchText = SearchText,
+                    PromptText = PromptText,
+                    PromptComplete = PromptComplete,
+                    SearchImageText = SearchImage,
                 };
                 await _context.Configs.AddAsync(newConfig);
             }
