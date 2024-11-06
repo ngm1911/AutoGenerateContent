@@ -1,28 +1,30 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AutoGenerateContent.Models
 {
     public partial class Config : ObservableObject
     {
         [ObservableProperty]
-        public int id;
+        int id;
 
         [ObservableProperty]
-        public string? name;
+        string? name;
 
         [ObservableProperty]
-        public string? searchText;
+        string? searchText;
 
         [ObservableProperty]
-        public string? promptText;
+        string? promptText;
 
         [ObservableProperty]
-        public string? promptComplete;
+        string? promptComplete;
 
         [ObservableProperty]
-        public string? searchImageText;
+        string? searchImageText;
 
+        [NotMapped]
         public bool IsChanged = false;
 
         protected override void OnPropertyChanged(PropertyChangedEventArgs e)

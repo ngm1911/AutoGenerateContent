@@ -19,13 +19,14 @@ namespace AutoGenerateContent.ViewModel
         int selectedConfigId;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanModified))]
         [NotifyCanExecuteChangedFor(nameof(DeleteConfigCommand))]
         [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
         Config selectedConfig;
 
         public SideBarViewModel(SQLiteContext context)
         {
-            _context = context; 
+            _context = context;
             LoadConfigs();
         }
 
@@ -81,6 +82,8 @@ namespace AutoGenerateContent.ViewModel
 
         private bool canDeleteClick => SelectedConfigId != -1;
 
+        public bool CanModified => !canDeleteClick;
+
         [RelayCommand(CanExecute = nameof(canDeleteClick))]
         public async Task DeleteConfig()
         {
@@ -100,9 +103,9 @@ namespace AutoGenerateContent.ViewModel
                             {
                                 SelectedConfigId = 0;
                                 Configs = new ObservableCollection<KeyValuePair<int, string>>(t.Result);
-                                Configs.Insert(0, new KeyValuePair<int, string>(-1, "Create New Configs"));
+                                Configs.Insert(0, new KeyValuePair<int, string>(-1, "[Create configs]"));
                                 SelectedConfigId = -1;
-                            });
+                            }, TaskContinuationOptions.ExecuteSynchronously);
         }
     }
 }

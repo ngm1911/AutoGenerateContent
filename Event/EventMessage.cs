@@ -2,13 +2,6 @@
 
 namespace AutoGenerateContent.Event
 {
-    public class GoNavigate : ValueChangedMessage<string>
-    {
-        public GoNavigate(string url) : base(url)
-        {
-        }
-    }
-    
     public class AskChatGpt : ValueChangedMessage<string>
     {
         public AskChatGpt(string prompt) : base(prompt)
@@ -19,6 +12,13 @@ namespace AutoGenerateContent.Event
     public class SearchKeyword : ValueChangedMessage<string>
     {
         public SearchKeyword(string keyword) : base(keyword)
+        {
+        }
+    }
+
+    public class SummaryHighLight : ValueChangedMessage<string>
+    {
+        public SummaryHighLight(string keyword) : base(keyword)
         {
         }
     }

@@ -101,42 +101,42 @@ namespace AutoGenerateContent.ViewModel
         private async Task OnReadHtmlContent()
         {   
             OnPropertyChanged(nameof(StateMachine));
-            List<Task> tasks = new();
-            foreach (var url in GoogleUrls)
-            {
-                tasks.Add(Task.Run(async () =>
-                {
-                    using (HttpClient client = new HttpClient())
-                    {
-                        var response = await client.GetStringAsync(url);
-                        var htmlDoc = new HtmlDocument();
-                        htmlDoc.LoadHtml(response);
-                        var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
-                        var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
-                        if (unwantedNodes != null)
-                        {
-                            foreach (var node in unwantedNodes)
-                            {
-                                node.Remove();
-                            }
-                        }
-                        string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
-                        cleanedContent = cleanedContent.Replace("\t", "");
-                        cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-                        cleanedContent = string.Join("<br>", cleanedContent.Split([ "\r", "\n" ], StringSplitOptions.RemoveEmptyEntries));
-                        cleanedContent = cleanedContent.Replace("\\", "")
-                                                       .Replace("'", "")
-                                                       .Replace("\"", "")
-                                                       .Replace("\t", "");
-                        if (string.IsNullOrWhiteSpace(cleanedContent) == false)
-                        {
-                            GoogleUrls.Remove(url);
-                            GoogleContents.Add(cleanedContent);
-                        }
-                    }
-                }));
-            }
-            await Task.WhenAll(tasks);
+            //List<Task> tasks = new();
+            //foreach (var url in GoogleUrls)
+            //{
+            //    tasks.Add(Task.Run(async () =>
+            //    {
+            //        using (HttpClient client = new HttpClient())
+            //        {
+            //            var response = await client.GetStringAsync(url);
+            //            var htmlDoc = new HtmlDocument();
+            //            htmlDoc.LoadHtml(response);
+            //            var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
+            //            var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
+            //            if (unwantedNodes != null)
+            //            {
+            //                foreach (var node in unwantedNodes)
+            //                {
+            //                    node.Remove();
+            //                }
+            //            }
+            //            string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
+            //            cleanedContent = cleanedContent.Replace("\t", "");
+            //            cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+            //            cleanedContent = string.Join("<br>", cleanedContent.Split([ "\r", "\n" ], StringSplitOptions.RemoveEmptyEntries));
+            //            cleanedContent = cleanedContent.Replace("\\", "")
+            //                                           .Replace("'", "")
+            //                                           .Replace("\"", "")
+            //                                           .Replace("\t", "");
+            //            if (string.IsNullOrWhiteSpace(cleanedContent) == false)
+            //            {
+            //                GoogleUrls.Remove(url);
+            //                GoogleContents.Add(cleanedContent);
+            //            }
+            //        }
+            //    }));
+            //}
+            //await Task.WhenAll(tasks);
             if (Auto)
             {
                 await StateMachine.FireAsync(Trigger.Next);
@@ -146,19 +146,18 @@ namespace AutoGenerateContent.ViewModel
         private async Task OnAskChatGpt()
         {
             OnPropertyChanged(nameof(StateMachine));
-            if (GoogleContents.Count > 0)
+            if (GoogleUrls.Count > 0)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents)));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleUrls.ToArray())));
             }
         }
         
         private async Task OnSummaryContent()
         {
-            MessageBox.Show(string.Join(Environment.NewLine, SummaryContents));
             OnPropertyChanged(nameof(StateMachine));
-            if (Auto)
+            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptComplete) == false)
             {
-                await StateMachine.FireAsync(Trigger.Next);
+                WeakReferenceMessenger.Default.Send<SummaryHighLight>(new(Sidebar.SelectedConfig.PromptComplete));
             }
         }
         

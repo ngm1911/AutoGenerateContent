@@ -8,31 +8,61 @@
         xmlns:wpf="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         d:DataContext="{d:DesignInstance Type=viewmodel:MainWindowViewModel}"
         mc:Ignorable="d"
-        Title="MainWindow" Height="750" Width="1200">
+        Title="MainWindow" Height="750" Width="1200" MinHeight="880">
+    <Window.Resources>
+        <Style TargetType="{x:Type Button}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                        Background="{TemplateBinding Background}" 
+                        BorderBrush="{TemplateBinding BorderBrush}" 
+                        BorderThickness="{TemplateBinding BorderThickness}" 
+                        CornerRadius="8"
+                        SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="LightBlue"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="LightGray"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Width" Value="110"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="BorderBrush" Value="LightGray"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontFamily" Value="Arial"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Left" Width="300">
+            <local:SideBar Margin="10"/>
+            <Button Command="{Binding StartCommand}" Width="280">
+                <Button.Content>
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox IsChecked="{Binding Auto}" Margin="0,3,5,0" ToolTip="Auto run"/>
+                        <TextBlock Text="{Binding StateMachine.State}"/>
+                    </StackPanel>
+                </Button.Content>
+            </Button>
+        </StackPanel>
+
+        <Separator BorderThickness="2" BorderBrush="Black" Margin="0,20">
+            <Separator.LayoutTransform>
+                <RotateTransform Angle="90"/>
+            </Separator.LayoutTransform>
+        </Separator>
         
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2.5*"/>
-            <ColumnDefinition Width="7.5*"/>
-        </Grid.ColumnDefinitions>
-
-        <Grid.RowDefinitions>
-            <RowDefinition Height="6*"/>
-            <RowDefinition Height="1*"/>
-        </Grid.RowDefinitions>
-
-        <local:SideBar Grid.Column="0" Grid.Row="0" Background="DarkGray"/>
-
-        <Button Height="50" Width="100" Grid.Column="0" Grid.Row="2" Command="{Binding StartCommand}">
-            <Button.Content>
-                <StackPanel Orientation="Horizontal">
-                    <CheckBox IsChecked="{Binding Auto}" Margin="0,0,5,0"/>
-                    <TextBlock Text="{Binding StateMachine.State}"/>
-                </StackPanel>
-            </Button.Content>
-        </Button>
-
-        <wpf:WebView2 Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" Name="webView">
-        </wpf:WebView2>
-    </Grid>
+        <wpf:WebView2 Name="webView"/>
+    </DockPanel>
 </Window>
