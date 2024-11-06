@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 namespace AutoGenerateContent.ViewModel
 {
@@ -37,7 +38,7 @@ namespace AutoGenerateContent.ViewModel
                 value.PropertyChanged -= Value_PropertyChanged;
                 value.PropertyChanged += Value_PropertyChanged;
 
-                void Value_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+                void Value_PropertyChanged(object? sender, PropertyChangedEventArgs e)
                 {
                     SaveConfigCommand.NotifyCanExecuteChanged();
                 }
