@@ -37,24 +37,32 @@
                 </Setter.Value>
             </Setter>
             <Setter Property="Width" Value="110"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="30"/>
             <Setter Property="BorderBrush" Value="LightGray"/>
-            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
     </Window.Resources>
 
     <DockPanel LastChildFill="True">
-        <StackPanel DockPanel.Dock="Left" Width="300">
+        <StackPanel DockPanel.Dock="Left" Width="350">
             <local:SideBar Margin="10"/>
-            <Button Command="{Binding StartCommand}" Width="280">
-                <Button.Content>
-                    <StackPanel Orientation="Horizontal">
-                        <CheckBox IsChecked="{Binding Auto}" Margin="0,3,5,0" ToolTip="Auto run"/>
-                        <TextBlock Text="{Binding StateMachine.State}"/>
-                    </StackPanel>
-                </Button.Content>
-            </Button>
+
+            <GroupBox Header="Start option" Margin="10" FontSize="15" FontWeight="Bold">
+                <StackPanel>
+                    <CheckBox IsChecked="{Binding Auto}" Margin="0,3,5,0" Content="Auto run" FontSize="11" FontWeight="Normal"/>
+                    <Button Command="{Binding StartCommand}" 
+                            Width="auto" 
+                            Content="{Binding StateMachine.State}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <StackPanel Margin="10,0,10,0" HorizontalAlignment="Left">
+                <Button Content="Clear cache" 
+                        Width="120" 
+                        Command="{Binding ClearWebCacheCommand}" />
+            </StackPanel>
         </StackPanel>
 
         <Separator BorderThickness="2" BorderBrush="Black" Margin="0,20">
@@ -63,6 +71,6 @@
             </Separator.LayoutTransform>
         </Separator>
         
-        <wpf:WebView2 Name="webView"/>
+        <wpf:WebView2 x:Name="webView"/>
     </DockPanel>
 </Window>

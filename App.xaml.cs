@@ -6,7 +6,10 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using System.Configuration;
 using System.Data;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace AutoGenerateContent
 {
@@ -47,5 +50,4 @@ namespace AutoGenerateContent
             base.OnStartup(e);
         }
     }
-
 }

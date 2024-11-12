@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using HtmlAgilityPack;
 using Stateless;
+using System.IO;
 using System.Net.Http;
 using System.Web;
 using System.Windows;
@@ -12,11 +13,13 @@ namespace AutoGenerateContent.ViewModel
 {
     public partial class MainWindowViewModel : ObservableObject
     {
+        public string WebView2Profile;
+
         [ObservableProperty]
         StateMachine<State, Trigger> stateMachine;
 
         [ObservableProperty]
-        bool auto;
+        bool auto = true;
         
         [ObservableProperty]
         string prompt;
@@ -53,8 +56,13 @@ namespace AutoGenerateContent.ViewModel
                 .OnEntryAsync(OnSearchKeyword);
 
             StateMachine.Configure(State.ReadHtmlContent)
-                .Permit(Trigger.Next, State.AskChatGpt)
+                .Permit(Trigger.Next, State.Intro)
                 .OnEntryAsync(OnReadHtmlContent);
+
+            StateMachine.Configure(State.Intro)
+                .PermitReentry(Trigger.Loop)
+                .Permit(Trigger.Next, State.AskChatGpt)
+                .OnEntryAsync(OnIntro);
 
             StateMachine.Configure(State.AskChatGpt)
                 .PermitReentry(Trigger.Loop)
@@ -80,6 +88,8 @@ namespace AutoGenerateContent.ViewModel
         {
             GoogleUrls.Clear();
             GoogleContents.Clear();
+            SummaryContents.Clear();
+            ClearWebCacheCommand.Execute(null);
 
             OnPropertyChanged(nameof(StateMachine));
             if (Auto)
@@ -101,42 +111,49 @@ namespace AutoGenerateContent.ViewModel
         private async Task OnReadHtmlContent()
         {   
             OnPropertyChanged(nameof(StateMachine));
-            //List<Task> tasks = new();
-            //foreach (var url in GoogleUrls)
-            //{
-            //    tasks.Add(Task.Run(async () =>
-            //    {
-            //        using (HttpClient client = new HttpClient())
-            //        {
-            //            var response = await client.GetStringAsync(url);
-            //            var htmlDoc = new HtmlDocument();
-            //            htmlDoc.LoadHtml(response);
-            //            var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
-            //            var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
-            //            if (unwantedNodes != null)
-            //            {
-            //                foreach (var node in unwantedNodes)
-            //                {
-            //                    node.Remove();
-            //                }
-            //            }
-            //            string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
-            //            cleanedContent = cleanedContent.Replace("\t", "");
-            //            cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-            //            cleanedContent = string.Join("<br>", cleanedContent.Split([ "\r", "\n" ], StringSplitOptions.RemoveEmptyEntries));
-            //            cleanedContent = cleanedContent.Replace("\\", "")
-            //                                           .Replace("'", "")
-            //                                           .Replace("\"", "")
-            //                                           .Replace("\t", "");
-            //            if (string.IsNullOrWhiteSpace(cleanedContent) == false)
-            //            {
-            //                GoogleUrls.Remove(url);
-            //                GoogleContents.Add(cleanedContent);
-            //            }
-            //        }
-            //    }));
-            //}
-            //await Task.WhenAll(tasks);
+            List<Task> tasks = new();
+            foreach (var url in GoogleUrls)
+            {
+                tasks.Add(Task.Run(async () =>
+                {
+                    using (HttpClient client = new HttpClient())
+                    {
+                        var response = await client.GetStringAsync(url);
+                        var htmlDoc = new HtmlDocument();
+                        htmlDoc.LoadHtml(response);
+                        var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
+                        var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
+                        if (unwantedNodes != null)
+                        {
+                            foreach (var node in unwantedNodes)
+                            {
+                                node.Remove();
+                            }
+                        }
+                        string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
+                        cleanedContent = cleanedContent.Replace("\t", "");
+                        cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+                        cleanedContent = string.Join("<br>", cleanedContent.Split(["\r", "\n"], StringSplitOptions.RemoveEmptyEntries));
+                        cleanedContent = cleanedContent.Replace("\\", "")
+                                                       .Replace("'", "")
+                                                       .Replace("\"", "")
+                                                       .Replace("\t", "");
+                        if (string.IsNullOrWhiteSpace(cleanedContent) == false)
+                        {
+                            GoogleUrls.Remove(url);
+                            if (cleanedContent.Length > 20000)
+                            {
+                                GoogleContents.Add("tham khảo nguồn" + url);
+                            }
+                            else
+                            {
+                                GoogleContents.Add(cleanedContent);
+                            }
+                        }
+                    }
+                }));
+            }
+            Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(15));
             if (Auto)
             {
                 await StateMachine.FireAsync(Trigger.Next);
@@ -146,18 +163,38 @@ namespace AutoGenerateContent.ViewModel
         private async Task OnAskChatGpt()
         {
             OnPropertyChanged(nameof(StateMachine));
-            if (GoogleUrls.Count > 0)
+            await Task.Delay(1000);
+            if (GoogleContents.Count > 0)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleUrls.ToArray())));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault())));
+            }
+            else if (Auto)
+            {
+                await StateMachine.FireAsync(Trigger.Next);
+            }
+        }
+        
+        private async Task OnIntro()
+        {
+            OnPropertyChanged(nameof(StateMachine));
+            await Task.Delay(1000);
+            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptIntro) == false)
+            {
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(Sidebar.SelectedConfig.PromptIntro));
+            }
+            else if (Auto)
+            {
+                await StateMachine.FireAsync(Trigger.Next);
             }
         }
         
         private async Task OnSummaryContent()
         {
             OnPropertyChanged(nameof(StateMachine));
-            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptComplete) == false)
+            await Task.Delay(1000);
+            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptSummary) == false)
             {
-                WeakReferenceMessenger.Default.Send<SummaryHighLight>(new(Sidebar.SelectedConfig.PromptComplete));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptSummary, SummaryContents.ToArray())));
             }
         }
         
@@ -184,6 +221,18 @@ namespace AutoGenerateContent.ViewModel
                 await StateMachine.FireAsync(Trigger.Start);
             }
         }
+
+        [RelayCommand]
+        public void ClearWebCache()
+        {
+            string newProfile = Path.Combine(nameof(WebView2Profile), Guid.NewGuid().ToString());
+            WeakReferenceMessenger.Default.Send<StateChanged>(new((State.Start, newProfile)));
+            if (Directory.Exists(WebView2Profile))
+            {
+                Directory.Delete(WebView2Profile, false);
+            }
+            WebView2Profile = newProfile;
+        }
     }
 
     public enum State
@@ -192,6 +241,7 @@ namespace AutoGenerateContent.ViewModel
         Init,
         SearchKeyword,
         ReadHtmlContent,
+        Intro,
         AskChatGpt,
         SummaryContent,
         Finish

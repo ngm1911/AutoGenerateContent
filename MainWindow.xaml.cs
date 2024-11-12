@@ -1,11 +1,16 @@
 ﻿using AutoGenerateContent.Event;
 using AutoGenerateContent.ViewModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
+using Serilog;
 using Serilog.Core;
 using System.IO;
+using System.Linq;
 using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
+using System.Web;
 using System.Windows;
 
 namespace AutoGenerateContent
@@ -20,9 +25,9 @@ namespace AutoGenerateContent
 
         public MainWindow()
         {
-            InitializeComponent();
-
             DataContext = _viewModel = App.AppHost.Services.GetRequiredService<MainWindowViewModel>();
+
+            InitializeComponent();
 
             _syncContext = SynchronizationContext.Current;
 
@@ -30,20 +35,43 @@ namespace AutoGenerateContent
 
             WeakReferenceMessenger.Default.Register<AskChatGpt>(this, (r, m) => AskChatGpt(m.Value));
 
-            WeakReferenceMessenger.Default.Register<SummaryHighLight>(this, (r, m) => SummaryHighLight(m.Value));
+            WeakReferenceMessenger.Default.Register<StateChanged>(this, async (r, m) =>
+            {
+                switch (m.Value.Item1)
+                {
+                    case State.Start:
+                        await ReloadProfileWebView2(m.Value.Item2.ToString()!);
+                        break;
+                }
+            });
         }
 
-        protected override async void OnInitialized(EventArgs e)
+        private async Task ReloadProfileWebView2(string newProfile)
+        {
+            try
+            {
+                if (Directory.Exists(newProfile) == false)
+                {
+                    Directory.CreateDirectory(newProfile);
+                }
+
+                var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: newProfile);
+                await webView.EnsureCoreWebView2Async(environment);
+                webView.CoreWebView2.Navigate("https://example.com");
+
+                webView.CoreWebView2InitializationCompleted -= WebView_CoreWebView2InitializationCompleted;
+                webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2InitializationCompleted;
+            }
+            catch (Exception ex)
+            {
+            }
+        }
+
+        protected override void OnInitialized(EventArgs e)
         {
             base.OnInitialized(e);
 
-            string tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(tempPath);
-            await webView.EnsureCoreWebView2Async(await CoreWebView2Environment.CreateAsync(
-                null,
-                tempPath
-            ));
-            webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2InitializationCompleted;
+            _viewModel.ClearWebCacheCommand.Execute(null);
         }
 
         private void WebView_CoreWebView2InitializationCompleted(object? sender, CoreWebView2InitializationCompletedEventArgs e)
@@ -87,7 +115,7 @@ namespace AutoGenerateContent
                     await webView.CoreWebView2.ExecuteScriptAsync(script).ContinueWith(async t =>
                     {
                         var hrefs = t.Result.Split(["[", "]", ",", "\""], StringSplitOptions.RemoveEmptyEntries);
-                        _viewModel.GoogleUrls = hrefs.Distinct().Take(5).ToList();
+                        _viewModel.GoogleUrls = hrefs.Distinct().Take(_viewModel.Sidebar.SelectedConfig.NumberUrls).ToList();
                         if (_viewModel.Auto)
                         {
                             await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
@@ -102,12 +130,10 @@ namespace AutoGenerateContent
             if (string.IsNullOrWhiteSpace(prompt) == false)
             {
                 CancellationTokenSource tokenSource = new CancellationTokenSource();
-                bool isFinished = false;
-                int retry = 20;
+                string guid = Guid.NewGuid().ToString();
 
                 _syncContext!.Post(_ =>
                 {
-                    isFinished = false;
                     if (webView.CoreWebView2.Source.StartsWith("https://chatgpt.com") == false)
                     {
                         webView.CoreWebView2.NavigationCompleted += navigateChatGpt;
@@ -126,208 +152,99 @@ namespace AutoGenerateContent
                     webView.CoreWebView2.WebMessageReceived += AnswerReceived;
 
                     await Task.Delay(1000);
-                    await InsertPromptAndSubmit(prompt, sender is not null);
+                    await InsertPromptAndSubmit(prompt, guid);
                 }
 
                 async void AnswerReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
                 {
-                    await tokenSource.CancelAsync();
-                    tokenSource = new CancellationTokenSource();
-
-                    if (isFinished)
+                    if ((args?.TryGetWebMessageAsString() ?? guid) == guid)
                     {
-                        webView.CoreWebView2.WebMessageReceived -= AnswerReceived;
-                    }
+                        await tokenSource.CancelAsync();
+                        tokenSource = new CancellationTokenSource();
 
-                    var rawMessage = args.TryGetWebMessageAsString();
-                    await ProcessMessage(tokenSource.Token, rawMessage);
+                        await ProcessMessage(tokenSource.Token);
+                    }
                 }
 
-                async Task ProcessMessage(CancellationToken token, string message)
+                async Task ProcessMessage(CancellationToken token)
                 {
-                    await Task.Delay(1000);
+                    int retry = 5;
+                    TRY_AGAIN:
+                    bool tryAgain = false;
+                    await Task.Delay(5000);
                     if (!token.IsCancellationRequested)
                     {
                         await CloseDialogLogin();
                         await webView.ExecuteScriptAsync(@"document.getElementsByClassName('group/conversation-turn')[document.getElementsByClassName('group/conversation-turn').length - 1].innerText")
                                 .ContinueWith(async t =>
                                 {
-                                    if ((t.Result.EndsWith("mini\"") && !isFinished) || retry < 0)
+                                    if (t.Result.Contains("I prefer this response"))
                                     {
-                                        isFinished = true;
-                                        Serilog.Log.Logger.Information($"Start ProcessMessage with {_viewModel.GoogleUrls.Count}");
-
-                                        if (_viewModel.GoogleUrls.Count > 0)
-                                        {
-                                            //_viewModel.SummaryContents.Add(t.Result);
-                                            _viewModel.GoogleUrls.Clear();
-                                            //if (_viewModel.StateMachine.CanFire(ViewModel.Trigger.Loop))
-                                            //{
-                                            //    await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Loop);
-                                            //}
-                                        }
-
-                                        if (_viewModel.Auto && _viewModel.GoogleUrls.Count == 0)
-                                        {
-                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                                            Serilog.Log.Logger.Information(ViewModel.Trigger.Next.ToString());
-                                        }
-
-                                        Serilog.Log.Logger.Information($"End ProcessMessage with {_viewModel.GoogleUrls.Count}");
+                                        await ClickButtonPrefer();
                                     }
-                                    else
+                                    else if ((t.Result.EndsWith("\"")
+                                        || retry < 0
+                                        || t.Result.Contains("The message you submitted was too long")))
                                     {
-                                        retry--;
-                                    }
-                                });
-
-                    }
-                }
-
-                async Task InsertPromptAndSubmit(string prompt, bool firstTime)
-                {
-                    await Task.Delay(100);
-                    await CloseDialogLogin();
-                    await webView.ExecuteScriptAsync($@"document.querySelector('div[id=""prompt-textarea""]').innerHTML='{prompt}';");
-
-                    await Task.Delay(100);
-                    await CloseDialogLogin();
-                    await webView.ExecuteScriptAsync($@"document.querySelector('button[data-testid=""send-button""]').click();");
-
-                    await Task.Delay(100);
-                    await CloseDialogLogin();
-
-                    await Task.Delay(500);
-                    await ListenAnwser();
-                }
-
-                async Task CloseDialogLogin()
-                {
-                    await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Stay logged out"")?.click();");
-                    await Task.Delay(50);
-                }
-
-                async Task ListenAnwser()
-                {
-                    string script = $@"
-                    const callback = function(mutationsList, observer) {{
-                        for(let mutation of mutationsList) {{
-                            if (mutation.type === 'childList') {{
-                                console.log('Child list changed. New content:', mutation.target.innerText);
-                                window.chrome.webview.postMessage('New content');
-                            }}
-                            else if (mutation.type === 'characterData') {{
-                                console.log('Text content changed. New text:', mutation.target.data);
-                                window.chrome.webview.postMessage(mutation.target.data);
-                            }}
-                        }}
-                    }};
-                    const observer = new MutationObserver(callback);
-                    setTimeout(() => {{
-                        Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Stay logged out"")?.click();
-                        observer.observe(document.body, {{attributes: true, childList: true, subtree: true }});
-                    }}, 500);
-                    ";
-
-                    await webView.ExecuteScriptAsync(script);
-                }
-            }
-        }
-
-
-        private void SummaryHighLight(string prompt)
-        {
-            if (string.IsNullOrWhiteSpace(prompt) == false)
-            {
-                CancellationTokenSource tokenSource = new CancellationTokenSource();
-                bool isFinished = false;
-                int retry = 5;
-
-                _syncContext!.Post(_ =>
-                {
-                    isFinished = false;
-                    if (webView.CoreWebView2.Source.StartsWith("https://chatgpt.com") == false)
-                    {
-                        webView.CoreWebView2.NavigationCompleted += navigateChatGpt;
-                        webView.CoreWebView2.Navigate("https://chatgpt.com/");
-                    }
-                    else
-                    {
-                        navigateChatGpt(null, null);
-                    }
-                }, null);
-
-                async void navigateChatGpt(object sender, CoreWebView2NavigationCompletedEventArgs e)
-                {
-                    webView.CoreWebView2.NavigationCompleted -= navigateChatGpt;
-                    webView.CoreWebView2.WebMessageReceived -= AnswerReceived;
-                    webView.CoreWebView2.WebMessageReceived += AnswerReceived;
-
-                    await Task.Delay(1000);
-                    await InsertPromptAndSubmit(prompt, sender is not null);
-                }
-
-                async void AnswerReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
-                {
-                    await tokenSource.CancelAsync();
-                    tokenSource = new CancellationTokenSource();
-
-                    if (isFinished)
-                    {
-                        webView.CoreWebView2.WebMessageReceived -= AnswerReceived;
-                    }
-
-                    var rawMessage = args.TryGetWebMessageAsString();
-                    await ProcessMessage(tokenSource.Token, rawMessage);
-                }
-
-                async Task ProcessMessage(CancellationToken token, string message)
-                {
-                    await Task.Delay(2000);
-                    if (!token.IsCancellationRequested)
-                    {
-                        await CloseDialogLogin();
-                        await webView.ExecuteScriptAsync(@"document.getElementsByClassName('group/conversation-turn')[document.getElementsByClassName('group/conversation-turn').length - 1].innerText")
-                                .ContinueWith(async t =>
-                                {
-                                    if ((t.Result.EndsWith("mini\"") && !isFinished) || retry == 0)
-                                    {
-                                        isFinished = true;
-                                        Serilog.Log.Logger.Information($"Start ProcessMessage with {_viewModel.GoogleContents.Count}");
-
-                                        MessageBox.Show(t.Result);
+                                        guid = "done";
                                         if (_viewModel.Auto)
                                         {
-                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                                            Serilog.Log.Logger.Information(ViewModel.Trigger.Next.ToString());
-                                        }
+                                            switch(_viewModel.StateMachine.State)
+                                            {
+                                                case State.AskChatGpt:
+                                                    if (_viewModel.GoogleContents.Count > 0)
+                                                    {
+                                                        _viewModel.SummaryContents.Add(t.Result);
+                                                        _viewModel.GoogleContents.RemoveAt(0);
+                                                        if (_viewModel.StateMachine.CanFire(ViewModel.Trigger.Loop))
+                                                        {
+                                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Loop);
+                                                        }
+                                                    }
+                                                    break;
 
-                                        Serilog.Log.Logger.Information($"End ProcessMessage with {_viewModel.GoogleContents.Count}");
+                                                case State.Intro:
+                                                    await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                                    break;
+
+                                                case State.SummaryContent:
+                                                    var t1 = Regex.Match(t.Result.Replace("\u003C", "<"), @"<html.*?>.*?</html>");
+                                                    MessageBox.Show(t1.Value);
+                                                    await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                                    break;
+                                            }
+                                        }
                                     }
                                     else
                                     {
                                         retry--;
+                                        tryAgain = true;
                                     }
                                 });
-
+                        if (tryAgain)
+                        {
+                            goto TRY_AGAIN;
+                        }
                     }
                 }
 
-                async Task InsertPromptAndSubmit(string prompt, bool firstTime)
+                async Task InsertPromptAndSubmit(string prompt, string guid)
                 {
-                    await Task.Delay(100);
+                    await Task.Delay(500);
+                    await ClickButtonSkipLogin();
+                    await Task.Delay(500);
                     await CloseDialogLogin();
                     await webView.ExecuteScriptAsync($@"document.querySelector('div[id=""prompt-textarea""]').innerHTML='{prompt}';");
 
-                    await Task.Delay(100);
+                    await Task.Delay(500);
                     await CloseDialogLogin();
                     await webView.ExecuteScriptAsync($@"document.querySelector('button[data-testid=""send-button""]').click();");
 
-                    await Task.Delay(100);
+                    await Task.Delay(500);
                     await CloseDialogLogin();
 
-                    await Task.Delay(500);
-                    await ListenAnwser();
+                    await Task.Delay(100);
+                    await ListenAnwser(guid);
                 }
 
                 async Task CloseDialogLogin()
@@ -336,17 +253,27 @@ namespace AutoGenerateContent
                     await Task.Delay(50);
                 }
 
-                async Task ListenAnwser()
+                async Task ClickButtonPrefer()
+                {
+                    await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""I prefer this response"").click()");
+                    await Task.Delay(50);
+                }
+
+                async Task ClickButtonSkipLogin()
+                {
+                    await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""Try it first"").click()");
+                    await Task.Delay(50);
+                }
+
+                async Task ListenAnwser(string guid)
                 {
                     string script = $@"
                     const callback = function(mutationsList, observer) {{
                         for(let mutation of mutationsList) {{
                             if (mutation.type === 'childList') {{
-                                console.log('Child list changed. New content:', mutation.target.innerText);
-                                window.chrome.webview.postMessage('New content');
+                                window.chrome.webview.postMessage('{guid}');
                             }}
                             else if (mutation.type === 'characterData') {{
-                                console.log('Text content changed. New text:', mutation.target.data);
                                 window.chrome.webview.postMessage(mutation.target.data);
                             }}
                         }}
@@ -355,14 +282,13 @@ namespace AutoGenerateContent
                     setTimeout(() => {{
                         Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Stay logged out"")?.click();
                         observer.observe(document.body, {{attributes: true, childList: true, subtree: true }});
-                    }}, 500);
+                    }}, 100);
                     ";
 
                     await webView.ExecuteScriptAsync(script);
+                    AnswerReceived(null, null);
                 }
             }
         }
-
-
     }
 }

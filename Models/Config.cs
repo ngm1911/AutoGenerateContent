@@ -16,10 +16,16 @@ namespace AutoGenerateContent.Models
         string? searchText;
 
         [ObservableProperty]
+        int numberUrls;
+
+        [ObservableProperty]
+        string? promptIntro;
+
+        [ObservableProperty]
         string? promptText;
 
         [ObservableProperty]
-        string? promptComplete;
+        string? promptSummary;
 
         [ObservableProperty]
         string? searchImageText;

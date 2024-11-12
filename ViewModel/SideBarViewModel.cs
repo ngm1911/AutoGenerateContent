@@ -69,8 +69,10 @@ namespace AutoGenerateContent.ViewModel
                 {
                     Name = SelectedConfig.Name,
                     SearchText = SelectedConfig.SearchText,
+                    NumberUrls = SelectedConfig.NumberUrls,
+                    PromptIntro = SelectedConfig.PromptIntro,
                     PromptText = SelectedConfig.PromptText,
-                    PromptComplete = SelectedConfig.PromptComplete,
+                    PromptSummary = SelectedConfig.PromptSummary,
                     SearchImageText = SelectedConfig.SearchImageText,
                 };
                 await _context.Configs.AddAsync(newConfig);
