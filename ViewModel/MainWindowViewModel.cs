@@ -13,6 +13,7 @@ namespace AutoGenerateContent.ViewModel
 {
     public partial class MainWindowViewModel : ObservableObject
     {
+        CancellationTokenSource tokenSource = new CancellationTokenSource();
         public string WebView2Profile;
 
         [ObservableProperty]
@@ -57,7 +58,7 @@ namespace AutoGenerateContent.ViewModel
 
             StateMachine.Configure(State.ReadHtmlContent)
                 .Permit(Trigger.Next, State.Intro)
-                .OnEntryAsync(OnReadHtmlContent);
+                .OnEntryAsync(() => OnReadHtmlContent(tokenSource.Token));
 
             StateMachine.Configure(State.Intro)
                 .PermitReentry(Trigger.Loop)
@@ -108,7 +109,7 @@ namespace AutoGenerateContent.ViewModel
             }
         }
         
-        private async Task OnReadHtmlContent()
+        private async Task OnReadHtmlContent(CancellationToken token)
         {   
             OnPropertyChanged(nameof(StateMachine));
             List<Task> tasks = new();
@@ -116,44 +117,52 @@ namespace AutoGenerateContent.ViewModel
             {
                 tasks.Add(Task.Run(async () =>
                 {
-                    using (HttpClient client = new HttpClient())
+                    try
                     {
-                        var response = await client.GetStringAsync(url);
-                        var htmlDoc = new HtmlDocument();
-                        htmlDoc.LoadHtml(response);
-                        var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
-                        var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
-                        if (unwantedNodes != null)
+                        using (HttpClient client = new HttpClient())
                         {
-                            foreach (var node in unwantedNodes)
+                            var response = await client.GetStringAsync(url, token);
+                            var htmlDoc = new HtmlDocument();
+                            htmlDoc.LoadHtml(response);
+                            var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
+                            var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
+                            if (unwantedNodes != null)
                             {
-                                node.Remove();
+                                foreach (var node in unwantedNodes)
+                                {
+                                    node.Remove();
+                                }
                             }
-                        }
-                        string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
-                        cleanedContent = cleanedContent.Replace("\t", "");
-                        cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-                        cleanedContent = string.Join("<br>", cleanedContent.Split(["\r", "\n"], StringSplitOptions.RemoveEmptyEntries));
-                        cleanedContent = cleanedContent.Replace("\\", "")
-                                                       .Replace("'", "")
-                                                       .Replace("\"", "")
-                                                       .Replace("\t", "");
-                        if (string.IsNullOrWhiteSpace(cleanedContent) == false)
-                        {
-                            GoogleUrls.Remove(url);
-                            if (cleanedContent.Length > 20000)
+                            string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
+                            cleanedContent = cleanedContent.Replace("\t", "");
+                            cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+                            cleanedContent = string.Join("<br>", cleanedContent.Split(["\r", "\n"], StringSplitOptions.RemoveEmptyEntries));
+                            cleanedContent = cleanedContent.Replace("\\", "")
+                                                           .Replace("'", "")
+                                                           .Replace("\"", "")
+                                                           .Replace("\t", "");
+                            if (string.IsNullOrWhiteSpace(cleanedContent) == false)
                             {
-                                GoogleContents.Add("tham khảo nguồn" + url);
-                            }
-                            else
-                            {
-                                GoogleContents.Add(cleanedContent);
+                                GoogleUrls.Remove(url);
+                                if (cleanedContent.Length > 20000)
+                                {
+                                    GoogleContents.Add("tham khảo nguồn" + url);
+                                }
+                                else
+                                {
+                                    GoogleContents.Add(cleanedContent);
+                                }
                             }
                         }
                     }
-                }));
+                    catch (Exception ex)
+                    {
+
+                    }
+                }, token));
             }
-            Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(15));
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
+            Task.WaitAll([.. tasks], token);
             if (Auto)
             {
                 await StateMachine.FireAsync(Trigger.Next);
