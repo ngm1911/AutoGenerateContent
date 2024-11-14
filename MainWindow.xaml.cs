@@ -192,9 +192,6 @@ namespace AutoGenerateContent
                                 || retry <= 0
                                 || text.Contains("The message you submitted was too long"))
                             {
-                                Log.Logger.Information(text);
-                                Log.Logger.Information(retry.ToString());
-
                                 guid = "Finihshed";
                                 if (_viewModel.Auto)
                                 {
@@ -221,7 +218,9 @@ namespace AutoGenerateContent
 
                                         case State.SummaryContent:
                                             var html = GetHtmlRegex().Match(text.Replace("\\u003C", "<").Replace("\\n", ""));
-                                            MessageBox.Show(html.Value);
+                                            Log.Logger.Information(html.Value);
+                                            await Task.Delay(2000);
+                                            webView.NavigateToString(html.Value);
                                             await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
                                             break;
                                     }
@@ -229,9 +228,6 @@ namespace AutoGenerateContent
                             }
                             else 
                             {
-                                Log.Logger.Information("-- Retry --");
-                                Log.Logger.Information(text.Length.ToString());
-                                Log.Logger.Information(retry.ToString());
                                 if (lastText == text)
                                 {
                                     retry--;
