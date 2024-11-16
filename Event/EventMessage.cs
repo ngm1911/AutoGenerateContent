@@ -31,4 +31,11 @@ namespace AutoGenerateContent.Event
         {
         }
     }
+
+    public class OnStart : ValueChangedMessage<string>
+    {
+        public OnStart(string keyword) : base(keyword)
+        {
+        }
+    }
 }

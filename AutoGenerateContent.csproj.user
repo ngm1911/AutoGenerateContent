@@ -7,21 +7,21 @@
     </ApplicationDefinition>
   </ItemGroup>
   <ItemGroup>
-    <Compile Update="CustomControl\CTextBox.xaml.cs">
+    <Compile Update="Views\SideBar.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="Views\SideBar.xaml.cs">
+    <Compile Update="Views\ucWebView2.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Page Update="CustomControl\CTextBox.xaml">
-      <SubType>Designer</SubType>
-    </Page>
     <Page Update="MainWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Views\SideBar.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ucWebView2.xaml">
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>

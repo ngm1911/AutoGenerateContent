@@ -4,10 +4,11 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using HtmlAgilityPack;
 using Stateless;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Web;
-using System.Windows;
 
 namespace AutoGenerateContent.ViewModel
 {
@@ -15,6 +16,12 @@ namespace AutoGenerateContent.ViewModel
     {
         CancellationTokenSource tokenSource = new CancellationTokenSource();
         public string WebView2Profile;
+        public bool WebvViewDone = false;
+        System.Timers.Timer timer = new System.Timers.Timer(TimeSpan.FromSeconds(1));
+        TimeSpan span;
+
+        [ObservableProperty]
+        ObservableCollection<string> webView2List;
 
         [ObservableProperty]
         StateMachine<State, Trigger> stateMachine;
@@ -24,6 +31,9 @@ namespace AutoGenerateContent.ViewModel
         
         [ObservableProperty]
         string prompt;
+
+        [ObservableProperty]
+        string time;
 
         [ObservableProperty]
         SideBarViewModel sidebar;
@@ -38,6 +48,17 @@ namespace AutoGenerateContent.ViewModel
         {
             Sidebar = sideBarViewModel;
             InitStateMachine();
+            if (Directory.Exists(nameof(WebView2Profile)))
+            {
+                Directory.Delete(nameof(WebView2Profile), true);
+            }
+            Directory.CreateDirectory(nameof(WebView2Profile));
+
+            timer.Elapsed += (s, e) =>
+            {
+                span = span.Add(TimeSpan.FromSeconds(1));
+                Time = $"{span.Minutes.ToString("0#")}:{span.Seconds.ToString("0#")}";
+            };
         }
        
         private void InitStateMachine()
@@ -50,11 +71,11 @@ namespace AutoGenerateContent.ViewModel
 
             StateMachine.Configure(State.Init)
                 .Permit(Trigger.Next, State.SearchKeyword)
-                .OnEntryAsync(OnStart);
+                .OnEntry(OnStart);
 
             StateMachine.Configure(State.SearchKeyword)
                 .Permit(Trigger.Next, State.ReadHtmlContent)
-                .OnEntryAsync(OnSearchKeyword);
+                .OnEntry(OnSearchKeyword);
 
             StateMachine.Configure(State.ReadHtmlContent)
                 .Permit(Trigger.Next, State.Intro)
@@ -81,32 +102,28 @@ namespace AutoGenerateContent.ViewModel
 
         private async Task OnIdle()
         {
-            await Task.Delay(1000);
             OnPropertyChanged(nameof(StateMachine));
+            timer.Stop();
         }
 
-        private async Task OnStart()
+        private void OnStart()
         {
+            OnPropertyChanged(nameof(StateMachine));
+            WeakReferenceMessenger.Default.Send<OnStart>(new(string.Empty));
+            Auto = true;
+            span = TimeSpan.Zero;
+            timer.Start();
             GoogleUrls.Clear();
             GoogleContents.Clear();
             SummaryContents.Clear();
-            ClearWebCacheCommand.Execute(null);
-
-            OnPropertyChanged(nameof(StateMachine));
-            if (Auto)
-            {
-                await StateMachine.FireAsync(Trigger.Next);
-            }
+            WebView2List?.Clear();
+            WebView2List = [Guid.NewGuid().ToString()];
         }
         
-        private async Task OnSearchKeyword()
-        {   
-            await Task.Delay(1000);
+        private void OnSearchKeyword()
+        {
             OnPropertyChanged(nameof(StateMachine));
-            if (Auto)
-            {
-                WeakReferenceMessenger.Default.Send<SearchKeyword>(new(Sidebar.SelectedConfig.SearchText));
-            }
+            WeakReferenceMessenger.Default.Send<SearchKeyword>(new(Sidebar.SelectedConfig.SearchText));
         }
         
         private async Task OnReadHtmlContent(CancellationToken token)
@@ -161,7 +178,6 @@ namespace AutoGenerateContent.ViewModel
                     }
                 }, token));
             }
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
             Task.WaitAll([.. tasks], token);
             if (Auto)
             {
@@ -172,7 +188,6 @@ namespace AutoGenerateContent.ViewModel
         private async Task OnAskChatGpt()
         {
             OnPropertyChanged(nameof(StateMachine));
-            await Task.Delay(1000);
             if (GoogleContents.Count > 0)
             {
                 WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault())));
@@ -186,7 +201,6 @@ namespace AutoGenerateContent.ViewModel
         private async Task OnIntro()
         {
             OnPropertyChanged(nameof(StateMachine));
-            await Task.Delay(1000);
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptIntro) == false)
             {
                 WeakReferenceMessenger.Default.Send<AskChatGpt>(new(Sidebar.SelectedConfig.PromptIntro));
@@ -200,7 +214,6 @@ namespace AutoGenerateContent.ViewModel
         private async Task OnSummaryContent()
         {
             OnPropertyChanged(nameof(StateMachine));
-            await Task.Delay(1000);
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptSummary) == false)
             {
                 WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptSummary, SummaryContents.ToArray())));
@@ -209,7 +222,6 @@ namespace AutoGenerateContent.ViewModel
         
         private async Task OnFinish()
         {
-            await Task.Delay(1000);
             OnPropertyChanged(nameof(StateMachine));
             if (Auto)
             {
@@ -236,10 +248,6 @@ namespace AutoGenerateContent.ViewModel
         {
             string newProfile = Path.Combine(nameof(WebView2Profile), Guid.NewGuid().ToString());
             WeakReferenceMessenger.Default.Send<StateChanged>(new((State.Start, newProfile)));
-            if (Directory.Exists(WebView2Profile))
-            {
-                Directory.Delete(WebView2Profile, false);
-            }
             WebView2Profile = newProfile;
         }
     }

@@ -5,20 +5,12 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:AutoGenerateContent.Views"
              xmlns:viewmodel="clr-namespace:AutoGenerateContent.ViewModel"
-             xmlns:controls="clr-namespace:AutoGenerateContent.CustomControl"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodel:SideBarViewModel}"
              d:DesignHeight="550" d:DesignWidth="450"
              xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2">
 
-    <UserControl.Resources>
-        <Style TargetType="{x:Type TextBlock}">
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="FontFamily" Value="Arial"/>
-            <Setter Property="Margin" Value="0,10,0,5"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-        </Style>
-        
+    <UserControl.Resources>        
         <Style TargetType="TextBox">
             <Setter Property="Template">
                 <Setter.Value>
