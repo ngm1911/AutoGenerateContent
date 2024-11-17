@@ -1,6 +1,7 @@
 ﻿using AutoGenerateContent.ViewModel;
 using CommunityToolkit.Mvvm.Messaging.Messages;
 using Stateless.Graph;
+using System.Net.Http;
 
 namespace AutoGenerateContent.Event
 {
@@ -21,6 +22,13 @@ namespace AutoGenerateContent.Event
     public class SearchKeyword : ValueChangedMessage<string>
     {
         public SearchKeyword(string keyword) : base(keyword)
+        {
+        }
+    }
+    
+    public class SearchImage : ValueChangedMessage<(string, string)>
+    {
+        public SearchImage((string, string) a) : base(a)
         {
         }
     }

@@ -1,13 +1,16 @@
 ﻿using AutoGenerateContent.Event;
 using AutoGenerateContent.ViewModel;
 using CommunityToolkit.Mvvm.Messaging;
+using HtmlAgilityPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
 using Serilog;
 using Stateless;
 using System.IO;
+using System.Net.Http;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
+using System.Web;
 using System.Windows.Controls;
 
 namespace AutoGenerateContent.Views
@@ -20,6 +23,7 @@ namespace AutoGenerateContent.Views
         readonly MainWindowViewModel _viewModel;
         readonly SynchronizationContext? _syncContext;
         string _profilePath;
+        Random r = new();
 
         public ucWebView2()
         {
@@ -28,6 +32,8 @@ namespace AutoGenerateContent.Views
             InitializeComponent();
 
             _syncContext = SynchronizationContext.Current;
+
+            WeakReferenceMessenger.Default.Register<SearchImage>(this, (r, m) => SearchImage(m.Value.Item1, m.Value.Item2, 0));
 
             WeakReferenceMessenger.Default.Register<SearchKeyword>(this, (r, m) => SearchKeyword(m.Value));
 
@@ -80,7 +86,7 @@ namespace AutoGenerateContent.Views
 
             if (_viewModel.Auto)
             {
-                await Task.Delay(1000);
+                await Task.Delay(r.Next(1000, 1200));
                 await _viewModel.StateMachine.FireAsync(Trigger.Next);
             }
         }
@@ -120,7 +126,7 @@ namespace AutoGenerateContent.Views
                 {
                     webView.CoreWebView2.NavigationCompleted -= navigateGoogle;
 
-                    await Task.Delay(1000);
+                    await Task.Delay(r.Next(1000, 1200));
                     string script = @"
                                     let links = document.querySelectorAll('a');
                                     let hrefs = Array.from(links)
@@ -130,13 +136,85 @@ namespace AutoGenerateContent.Views
 
                     await webView.CoreWebView2.ExecuteScriptAsync(script).ContinueWith(async t =>
                     {
-                        var hrefs = t.Result.Split(["[", "]", ",", "\""], StringSplitOptions.RemoveEmptyEntries);
-                        _viewModel.GoogleUrls = hrefs.Distinct().Take(_viewModel.Sidebar.SelectedConfig.NumberUrls).ToList();
+                        var hrefs = t.Result.Split(["[", "]", ",", "\""], StringSplitOptions.RemoveEmptyEntries).Distinct();
+                        List<string> hosts = [];
+                        foreach(var href in hrefs)
+                        {
+                            var uri = new Uri(href);
+                            if (hosts.Any(x => x == uri.Host) == false)
+                            {
+                                hosts.Add(uri.Host);
+                                _viewModel.GoogleUrls.Add(href);
+                            }
+                            if (_viewModel.GoogleUrls.Count >= _viewModel.Sidebar.SelectedConfig.NumberUrls)
+                                break;
+
+                        }
                         if (_viewModel.Auto)
                         {
                             await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
                         }
                     });
+                }
+            }
+        }
+
+        private async Task SearchImage(string searchImageText, string html, int idx)
+        {
+            if (string.IsNullOrWhiteSpace(searchImageText) == false)
+            {
+                CancellationTokenSource tokenSource = new CancellationTokenSource();
+
+                HtmlDocument doc = new HtmlDocument();
+                doc.LoadHtml(html);
+
+                var headings = doc.DocumentNode.SelectNodes("//h2");
+                HtmlNode heading;
+                if (headings?.Count > idx)
+                {
+                    heading = headings[idx];
+                    _syncContext!.Post(_ =>
+                    {
+                        webView.CoreWebView2.NavigationCompleted += searchGoogle;
+                        webView.CoreWebView2.Navigate($"https://www.google.com/search?q={UrlEncoder.Default.Encode(string.Format(searchImageText, heading.InnerText))}");
+                    }, null);                    
+                }
+                else
+                {
+                    _viewModel.HtmlContent = html;
+                    await File.WriteAllTextAsync(Path.Combine("Output", $"{Guid.NewGuid}.html"), html);
+                    await Task.Delay(r.Next(400, 600));
+                    webView.CoreWebView2.NavigateToString(html);
+
+                    await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                }
+
+                async void searchGoogle(object sender, CoreWebView2NavigationCompletedEventArgs e)
+                {
+                    webView.CoreWebView2.NavigationCompleted -= searchGoogle;
+                    webView.CoreWebView2.NavigationCompleted += navigationImageTab;
+
+                    await Task.Delay(r.Next(400, 600));
+                    await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Hình ảnh"").click()");
+                }
+                
+                async void navigationImageTab(object sender, CoreWebView2NavigationCompletedEventArgs e)
+                {
+                    webView.CoreWebView2.NavigationCompleted -= navigationImageTab;
+
+                    await Task.Delay(r.Next(400, 600));
+                    await webView.ExecuteScriptAsync(@$"Array.from(document.querySelectorAll('img[class=""YQ4gaf""]'))[{r.Next(0, 4)}].click()");
+
+                    await Task.Delay(r.Next(800, 1200));
+                    var imageUrl = await webView.ExecuteScriptAsync(@"document.querySelector('a[class=""YsLeY""]').firstChild[""src""]");
+
+                    var img = doc.CreateElement("img");
+                    img.SetAttributeValue("src", imageUrl.Replace("\"", ""));
+                    img.SetAttributeValue("style", "width:500px;height:500px;");
+                    heading.ParentNode.InsertAfter(img, heading);
+
+                    string modifiedHtml = doc.DocumentNode.OuterHtml;
+                    await SearchImage(searchImageText, modifiedHtml, idx + 1);
                 }
             }
         }
@@ -168,7 +246,7 @@ namespace AutoGenerateContent.Views
                     webView.CoreWebView2.WebMessageReceived -= AnswerReceived;
                     webView.CoreWebView2.WebMessageReceived += AnswerReceived;
 
-                    await Task.Delay(1000);
+                    await Task.Delay(r.Next(800, 1300));
                     await InsertPromptAndSubmit(prompt, guid);
                 }
 
@@ -239,8 +317,8 @@ namespace AutoGenerateContent.Views
                                             if (string.IsNullOrWhiteSpace(html.Value) == false)
                                             {
                                                 guid = "Finihshed";
-                                                await Task.Delay(1000);
-                                                webView.NavigateToString(html.Value);
+                                                await Task.Delay(r.Next(200, 500));
+                                                _viewModel.HtmlContent = html.Value;
                                                 await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
                                             }
                                             else
@@ -280,25 +358,25 @@ namespace AutoGenerateContent.Views
 
                 async Task CloseDialogLogin()
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(r.Next(200, 800));
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Stay logged out"")?.click();");
                 }
 
                 async Task ClickButtonPrefer()
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(r.Next(200, 800));
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""I prefer this response"").click()");
                 }
 
                 async Task ClickButtonContinue()
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(r.Next(200, 800));
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""Continue generating"").click()");
                 }
 
                 async Task ClickButtonSkipLogin()
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(r.Next(200, 800));
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""Try it first"").click()");
                 }
 

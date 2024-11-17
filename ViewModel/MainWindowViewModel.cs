@@ -16,6 +16,7 @@ namespace AutoGenerateContent.ViewModel
     {
         CancellationTokenSource tokenSource = new CancellationTokenSource();
         public string WebView2Profile;
+        public string HtmlContent;
         public bool WebvViewDone = false;
         System.Timers.Timer timer = new System.Timers.Timer(TimeSpan.FromSeconds(1));
         TimeSpan span;
@@ -53,6 +54,12 @@ namespace AutoGenerateContent.ViewModel
                 Directory.Delete(nameof(WebView2Profile), true);
             }
             Directory.CreateDirectory(nameof(WebView2Profile));
+
+            if (Directory.Exists("Output"))
+            {
+                Directory.Delete("Output", true);
+            }
+            Directory.CreateDirectory("Output");
 
             timer.Elapsed += (s, e) =>
             {
@@ -92,8 +99,13 @@ namespace AutoGenerateContent.ViewModel
                 .OnEntryAsync(OnAskChatGpt);
 
             StateMachine.Configure(State.SummaryContent)
-                .Permit(Trigger.Next, State.Finish)
+                .Permit(Trigger.Next, State.SearchImage)
                 .OnEntryAsync(OnSummaryContent);
+
+            StateMachine.Configure(State.SearchImage)
+                .PermitReentry(Trigger.Loop)
+                .Permit(Trigger.Next, State.Finish)
+                .OnEntryAsync(OnSearchImage);
 
             StateMachine.Configure(State.Finish)
                 .Permit(Trigger.Start, State.Start)
@@ -220,6 +232,15 @@ namespace AutoGenerateContent.ViewModel
             }
         }
         
+        private async Task OnSearchImage()
+        {
+            OnPropertyChanged(nameof(StateMachine));
+            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.SearchImageText) == false)
+            {
+                WeakReferenceMessenger.Default.Send<SearchImage>(new(new (Sidebar.SelectedConfig.SearchImageText, HtmlContent)));
+            }
+        }
+        
         private async Task OnFinish()
         {
             OnPropertyChanged(nameof(StateMachine));
@@ -261,6 +282,7 @@ namespace AutoGenerateContent.ViewModel
         Intro,
         AskChatGpt,
         SummaryContent,
+        SearchImage,
         Finish
     }
 
