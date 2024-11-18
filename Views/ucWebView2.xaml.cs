@@ -195,7 +195,7 @@ namespace AutoGenerateContent.Views
                     webView.CoreWebView2.NavigationCompleted += navigationImageTab;
 
                     await Task.Delay(r.Next(400, 600));
-                    await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Hình ảnh"").click()");
+                    await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Hình ảnh"" | x.innerText === ""Images"").click()");
                 }
                 
                 async void navigationImageTab(object sender, CoreWebView2NavigationCompletedEventArgs e)
@@ -206,7 +206,7 @@ namespace AutoGenerateContent.Views
                     await webView.ExecuteScriptAsync(@$"Array.from(document.querySelectorAll('img[class=""YQ4gaf""]'))[{r.Next(0, 4)}].click()");
 
                     await Task.Delay(r.Next(800, 1200));
-                    var imageUrl = await webView.ExecuteScriptAsync(@"document.querySelector('a[class=""YsLeY""]').firstChild[""src""]");
+                    var imageUrl = await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a[class=""YsLeY""]'))[1].firstChild[""src""]");
 
                     var img = doc.CreateElement("img");
                     img.SetAttributeValue("src", imageUrl.Replace("\"", ""));
