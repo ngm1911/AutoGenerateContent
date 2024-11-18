@@ -57,19 +57,16 @@
 
             <GroupBox Header="Start option" Margin="10" FontSize="15" FontWeight="Bold">
                 <StackPanel>
-                    <!--<CheckBox IsChecked="{Binding Auto}" Margin="0,3,5,0" Content="Auto run" FontSize="11" FontWeight="Normal"/>-->
+                    <TextBox DockPanel.Dock="Right" 
+                             Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                             TextAlignment="Center" Margin="5,0,0,0" Height="30" Width="30" 
+                             PreviewTextInput="PreviewTextInput"/>
                     <Button Command="{Binding StartCommand}" 
                             Width="auto" 
                             Height="35"
                             Content="{Binding StateMachine.State}"/>
                 </StackPanel>
             </GroupBox>
-
-            <!--<StackPanel Margin="10,0,10,0" HorizontalAlignment="Left" Orientation="Horizontal">
-                <Button Content="Clear cache" 
-                        Width="120" 
-                        Command="{Binding ClearWebCacheCommand}" />
-            </StackPanel>-->
         </StackPanel>
 
         <Separator BorderThickness="2" BorderBrush="Black" Margin="0,20">

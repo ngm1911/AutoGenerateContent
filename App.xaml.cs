@@ -47,7 +47,36 @@ namespace AutoGenerateContent
                 db.Database.Migrate();
             }
 
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+            TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+            Application.Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
             base.OnStartup(e);
+        }
+
+        private void Current_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            if (e.Exception is OperationCanceledException canceledException)
+            {
+                Log.Logger.Error($"{canceledException.Message}");
+                Console.WriteLine($"OperationCanceledException in UI thread: {canceledException.Message}");
+                e.Handled = true;
+            }
+            else
+            {
+                Log.Logger.Error($"{e.Exception.Message}");
+                e.Handled = true;
+            }
+        }
+
+        private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            Log.Logger.Error("TaskScheduler_UnobservedTaskException");
+            e.SetObserved();
+        }
+
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Log.Logger.Error($"{e?.ExceptionObject}");
         }
     }
 }

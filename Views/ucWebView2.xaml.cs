@@ -33,11 +33,20 @@ namespace AutoGenerateContent.Views
 
             _syncContext = SynchronizationContext.Current;
 
-            WeakReferenceMessenger.Default.Register<SearchImage>(this, (r, m) => SearchImage(m.Value.Item1, m.Value.Item2, 0));
+            WeakReferenceMessenger.Default.Register<SearchImage>(this, async (r, m) =>
+            {
+                await SearchImage(m.Value.Item1, m.Value.Item2, 0, m.Token);
+            });
 
-            WeakReferenceMessenger.Default.Register<SearchKeyword>(this, (r, m) => SearchKeyword(m.Value));
+            WeakReferenceMessenger.Default.Register<SearchKeyword>(this, (r, m) =>
+            {
+                SearchKeyword(m.Value, m.Token);
+            });
 
-            WeakReferenceMessenger.Default.Register<AskChatGpt>(this, (r, m) => AskChatGpt(m.Value));
+            WeakReferenceMessenger.Default.Register<AskChatGpt>(this, (r, m) =>
+            {
+                AskChatGpt(m.Value, m.Token);
+            });
 
             WeakReferenceMessenger.Default.Register<StateChanged>(this, (r, m) =>
             {
@@ -46,7 +55,7 @@ namespace AutoGenerateContent.Views
                     case State.Start:
                         _syncContext!.Post(async _ =>
                         {
-                            await ReloadProfileWebView2(m.Value.Item2.ToString()!);
+                            await ReloadProfileWebView2(m.Value.Item2.ToString()!, m.Token);
                         }, null);
                         break;
                 }
@@ -69,7 +78,7 @@ namespace AutoGenerateContent.Views
         }
 
 
-        private async Task ReloadProfileWebView2(string newProfile)
+        private async Task ReloadProfileWebView2(string newProfile, CancellationToken token)
         {
             _profilePath = newProfile;
             if (Directory.Exists(_profilePath) == false)
@@ -77,18 +86,19 @@ namespace AutoGenerateContent.Views
                 Directory.CreateDirectory(_profilePath);
             }
 
-            //webView.CoreWebView2InitializationCompleted -= WebView_CoreWebView2InitializationCompleted;
-            //webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2InitializationCompleted;
+#if DEBUG
+
+#else
+webView.CoreWebView2InitializationCompleted -= WebView_CoreWebView2InitializationCompleted;
+webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2InitializationCompleted;
+#endif
 
             var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: _profilePath);
             await webView.EnsureCoreWebView2Async(environment);
             webView.CoreWebView2.Navigate("https://example.com");
 
-            if (_viewModel.Auto)
-            {
-                await Task.Delay(r.Next(1000, 1200));
-                await _viewModel.StateMachine.FireAsync(Trigger.Next);
-            }
+            await Task.Delay(r.Next(500, 1000), token);
+            await _viewModel.StateMachine.FireAsync(Trigger.Next, token);
         }
 
         protected override void OnInitialized(EventArgs e)
@@ -111,7 +121,7 @@ namespace AutoGenerateContent.Views
             webView.CoreWebView2.Settings.IsWebMessageEnabled = true;
         }
 
-        private void SearchKeyword(string keyword)
+        private void SearchKeyword(string keyword, CancellationToken token)
         {
             if (string.IsNullOrWhiteSpace(keyword) == false)
             {
@@ -126,7 +136,7 @@ namespace AutoGenerateContent.Views
                 {
                     webView.CoreWebView2.NavigationCompleted -= navigateGoogle;
 
-                    await Task.Delay(r.Next(1000, 1200));
+                    await Task.Delay(r.Next(1000, 1200), token);
                     string script = @"
                                     let links = document.querySelectorAll('a');
                                     let hrefs = Array.from(links)
@@ -150,16 +160,13 @@ namespace AutoGenerateContent.Views
                                 break;
 
                         }
-                        if (_viewModel.Auto)
-                        {
-                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                        }
+                        await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next, token);
                     });
                 }
             }
         }
 
-        private async Task SearchImage(string searchImageText, string html, int idx)
+        private async Task SearchImage(string searchImageText, string html, int idx, CancellationToken token)
         {
             if (string.IsNullOrWhiteSpace(searchImageText) == false)
             {
@@ -182,11 +189,11 @@ namespace AutoGenerateContent.Views
                 else
                 {
                     _viewModel.HtmlContent = html;
-                    await File.WriteAllTextAsync(Path.Combine("Output", $"{Guid.NewGuid}.html"), html);
-                    await Task.Delay(r.Next(400, 600));
+                    await File.WriteAllTextAsync(Path.Combine("Output", $"{Guid.NewGuid}.html"), html, token);
+                    await Task.Delay(r.Next(400, 600), token);
                     webView.CoreWebView2.NavigateToString(html);
 
-                    await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                    await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next, token);
                 }
 
                 async void searchGoogle(object sender, CoreWebView2NavigationCompletedEventArgs e)
@@ -194,7 +201,7 @@ namespace AutoGenerateContent.Views
                     webView.CoreWebView2.NavigationCompleted -= searchGoogle;
                     webView.CoreWebView2.NavigationCompleted += navigationImageTab;
 
-                    await Task.Delay(r.Next(400, 600));
+                    await Task.Delay(r.Next(400, 600), token);
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Hình ảnh"" | x.innerText === ""Images"").click()");
                 }
                 
@@ -202,10 +209,10 @@ namespace AutoGenerateContent.Views
                 {
                     webView.CoreWebView2.NavigationCompleted -= navigationImageTab;
 
-                    await Task.Delay(r.Next(400, 600));
+                    await Task.Delay(r.Next(400, 600), token);
                     await webView.ExecuteScriptAsync(@$"Array.from(document.querySelectorAll('img[class=""YQ4gaf""]'))[{r.Next(0, 4)}].click()");
 
-                    await Task.Delay(r.Next(800, 1200));
+                    await Task.Delay(r.Next(800, 1200), token);
                     var imageUrl = await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a[class=""YsLeY""]'))[1].firstChild[""src""]");
 
                     var img = doc.CreateElement("img");
@@ -214,12 +221,12 @@ namespace AutoGenerateContent.Views
                     heading.ParentNode.InsertAfter(img, heading);
 
                     string modifiedHtml = doc.DocumentNode.OuterHtml;
-                    await SearchImage(searchImageText, modifiedHtml, idx + 1);
+                    await SearchImage(searchImageText, modifiedHtml, idx + 1, token);
                 }
             }
         }
 
-        private void AskChatGpt(string prompt)
+        private void AskChatGpt(string prompt, CancellationToken token)
         {
             if (string.IsNullOrWhiteSpace(prompt) == false)
             {
@@ -246,13 +253,16 @@ namespace AutoGenerateContent.Views
                     webView.CoreWebView2.WebMessageReceived -= AnswerReceived;
                     webView.CoreWebView2.WebMessageReceived += AnswerReceived;
 
-                    await Task.Delay(r.Next(800, 1300));
-                    await InsertPromptAndSubmit(prompt, guid);
+                    if (token.IsCancellationRequested == false)
+                    {
+                        await Task.Delay(r.Next(800, 1300), token);
+                        await InsertPromptAndSubmit(prompt, guid);
+                    }
                 }
 
                 async void AnswerReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
                 {
-                    if ((args?.TryGetWebMessageAsString() ?? guid) == guid)
+                    if ((args?.TryGetWebMessageAsString() ?? guid) == guid  && !token.IsCancellationRequested)
                     {
                         await tokenSource.CancelAsync();
                         tokenSource = new CancellationTokenSource();
@@ -286,9 +296,7 @@ namespace AutoGenerateContent.Views
                                 || retry <= 0
                                 || text.Contains("The message you submitted was too long"))
                             {
-                                if (_viewModel.Auto)
-                                {
-                                    switch (_viewModel.StateMachine.State)
+                                switch (_viewModel.StateMachine.State)
                                     {
                                         case State.AskChatGpt:
                                             guid = "Finihshed";
@@ -327,7 +335,6 @@ namespace AutoGenerateContent.Views
                                             }
                                             break;
                                     }
-                                }
                             }
                             else
                             {
@@ -358,25 +365,25 @@ namespace AutoGenerateContent.Views
 
                 async Task CloseDialogLogin()
                 {
-                    await Task.Delay(r.Next(200, 800));
+                    await Task.Delay(r.Next(200, 800), token);
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('a')).findLast(x => x.innerText === ""Stay logged out"")?.click();");
                 }
 
                 async Task ClickButtonPrefer()
                 {
-                    await Task.Delay(r.Next(200, 800));
+                    await Task.Delay(r.Next(200, 800), token);
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""I prefer this response"").click()");
                 }
 
                 async Task ClickButtonContinue()
                 {
-                    await Task.Delay(r.Next(200, 800));
+                    await Task.Delay(r.Next(200, 800), token);
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""Continue generating"").click()");
                 }
 
                 async Task ClickButtonSkipLogin()
                 {
-                    await Task.Delay(r.Next(200, 800));
+                    await Task.Delay(r.Next(200, 800), token);
                     await webView.ExecuteScriptAsync(@"Array.from(document.querySelectorAll('button')).findLast(x => x.innerText === ""Try it first"").click()");
                 }
 

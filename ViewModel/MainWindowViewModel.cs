@@ -5,7 +5,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using HtmlAgilityPack;
 using Stateless;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Web;
@@ -15,9 +14,8 @@ namespace AutoGenerateContent.ViewModel
     public partial class MainWindowViewModel : ObservableObject
     {
         CancellationTokenSource tokenSource = new CancellationTokenSource();
-        public string WebView2Profile;
+        string WebView2Profile;
         public string HtmlContent;
-        public bool WebvViewDone = false;
         System.Timers.Timer timer = new System.Timers.Timer(TimeSpan.FromSeconds(1));
         TimeSpan span;
 
@@ -28,8 +26,8 @@ namespace AutoGenerateContent.ViewModel
         StateMachine<State, Trigger> stateMachine;
 
         [ObservableProperty]
-        bool auto = true;
-        
+        int loopCount;
+
         [ObservableProperty]
         string prompt;
 
@@ -64,7 +62,7 @@ namespace AutoGenerateContent.ViewModel
             timer.Elapsed += (s, e) =>
             {
                 span = span.Add(TimeSpan.FromSeconds(1));
-                Time = $"{span.Minutes.ToString("0#")}:{span.Seconds.ToString("0#")}";
+                Time = $"{span.Minutes:0#}:{span.Seconds:0#}";
             };
         }
        
@@ -73,56 +71,66 @@ namespace AutoGenerateContent.ViewModel
             StateMachine = new StateMachine<State, Trigger>(State.Start);
 
             StateMachine.Configure(State.Start)
-                .Permit(Trigger.Next, State.Init)
+                .PermitIf(Trigger.Next, State.Init, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnIdle);
 
             StateMachine.Configure(State.Init)
-                .Permit(Trigger.Next, State.SearchKeyword)
-                .OnEntry(OnStart);
+                .PermitIf(Trigger.Next, State.SearchKeyword, () => !tokenSource.IsCancellationRequested)
+                .OnEntryAsync(OnStart);
 
             StateMachine.Configure(State.SearchKeyword)
-                .Permit(Trigger.Next, State.ReadHtmlContent)
+                .PermitIf(Trigger.Next, State.ReadHtmlContent, () => !tokenSource.IsCancellationRequested)
                 .OnEntry(OnSearchKeyword);
 
             StateMachine.Configure(State.ReadHtmlContent)
-                .Permit(Trigger.Next, State.Intro)
-                .OnEntryAsync(() => OnReadHtmlContent(tokenSource.Token));
+                .PermitIf(Trigger.Next, State.Intro, () => !tokenSource.IsCancellationRequested)
+                .OnEntryAsync(OnReadHtmlContent);
 
             StateMachine.Configure(State.Intro)
-                .PermitReentry(Trigger.Loop)
-                .Permit(Trigger.Next, State.AskChatGpt)
+                .PermitReentryIf(Trigger.Loop, () => !tokenSource.IsCancellationRequested)
+                .PermitIf(Trigger.Next, State.AskChatGpt, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnIntro);
 
             StateMachine.Configure(State.AskChatGpt)
-                .PermitReentry(Trigger.Loop)
-                .Permit(Trigger.Next, State.SummaryContent)
+                .PermitReentryIf(Trigger.Loop, () => !tokenSource.IsCancellationRequested)
+                .PermitIf(Trigger.Next, State.SummaryContent, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnAskChatGpt);
 
             StateMachine.Configure(State.SummaryContent)
-                .Permit(Trigger.Next, State.SearchImage)
+                .PermitIf(Trigger.Next, State.SearchImage, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnSummaryContent);
 
             StateMachine.Configure(State.SearchImage)
-                .PermitReentry(Trigger.Loop)
-                .Permit(Trigger.Next, State.Finish)
+                .PermitIf(Trigger.Next, State.Finish, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnSearchImage);
 
             StateMachine.Configure(State.Finish)
-                .Permit(Trigger.Start, State.Start)
+                .PermitIf(Trigger.Start, State.Start, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnFinish);
         }
 
         private async Task OnIdle()
         {
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
-            timer.Stop();
+            if (LoopCount > 0 && !token.IsCancellationRequested)
+            {
+                await StateMachine.FireAsync(Trigger.Next, token);
+            }
+            else
+            {
+                tokenSource = new CancellationTokenSource();
+                timer.Stop();
+            }
         }
 
-        private void OnStart()
+        private async Task OnStart()
         {
+            await tokenSource.CancelAsync();
+            tokenSource = new CancellationTokenSource();
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
-            WeakReferenceMessenger.Default.Send<OnStart>(new(string.Empty));
-            Auto = true;
+            WeakReferenceMessenger.Default.Send<OnStart>(new(string.Empty, token));
             span = TimeSpan.Zero;
             timer.Start();
             GoogleUrls.Clear();
@@ -134,12 +142,14 @@ namespace AutoGenerateContent.ViewModel
         
         private void OnSearchKeyword()
         {
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
-            WeakReferenceMessenger.Default.Send<SearchKeyword>(new(Sidebar.SelectedConfig.SearchText));
+            WeakReferenceMessenger.Default.Send<SearchKeyword>(new(Sidebar.SelectedConfig.SearchText, token));
         }
         
-        private async Task OnReadHtmlContent(CancellationToken token)
-        {   
+        private async Task OnReadHtmlContent()
+        {
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             List<Task> tasks = new();
             foreach (var url in GoogleUrls)
@@ -191,20 +201,18 @@ namespace AutoGenerateContent.ViewModel
                 }, token));
             }
             Task.WaitAll([.. tasks], token);
-            if (Auto)
-            {
-                await StateMachine.FireAsync(Trigger.Next);
-            }
+            await StateMachine.FireAsync(Trigger.Next, token);
         }
 
         private async Task OnAskChatGpt()
         {
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             if (GoogleContents.Count > 0)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault())));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault()), token));
             }
-            else if (Auto)
+            else
             {
                 await StateMachine.FireAsync(Trigger.Next);
             }
@@ -212,12 +220,13 @@ namespace AutoGenerateContent.ViewModel
         
         private async Task OnIntro()
         {
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptIntro) == false)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(Sidebar.SelectedConfig.PromptIntro));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(Sidebar.SelectedConfig.PromptIntro, token));
             }
-            else if (Auto)
+            else
             {
                 await StateMachine.FireAsync(Trigger.Next);
             }
@@ -225,50 +234,55 @@ namespace AutoGenerateContent.ViewModel
         
         private async Task OnSummaryContent()
         {
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptSummary) == false)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptSummary, SummaryContents.ToArray())));
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptSummary, SummaryContents.ToArray()), token));
             }
         }
         
         private async Task OnSearchImage()
         {
+            CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.SearchImageText) == false)
             {
-                WeakReferenceMessenger.Default.Send<SearchImage>(new(new (Sidebar.SelectedConfig.SearchImageText, HtmlContent)));
+                WeakReferenceMessenger.Default.Send<SearchImage>(new(new (Sidebar.SelectedConfig.SearchImageText, HtmlContent), token));
             }
         }
         
         private async Task OnFinish()
         {
             OnPropertyChanged(nameof(StateMachine));
-            if (Auto)
-            {
-                Auto = false;
-                await StateMachine.FireAsync(Trigger.Start);
-            }
+            await StateMachine.FireAsync(Trigger.Start);
         }
 
         [RelayCommand]
         public async Task Start()
         {
-            if (StateMachine.CanFire(Trigger.Next))
-            {
-                await StateMachine.FireAsync(Trigger.Next);
-            }
-            else if (StateMachine.CanFire(Trigger.Start))
+            if (StateMachine.CanFire(Trigger.Start))
             {
                 await StateMachine.FireAsync(Trigger.Start);
+            }
+            else if (StateMachine.IsInState(State.Start) == false)
+            {
+                await tokenSource.CancelAsync();
+                await OnIdle();
+                InitStateMachine();
+            }
+            else if (StateMachine.CanFire(Trigger.Next))
+            {
+                await StateMachine.FireAsync(Trigger.Next);
             }
         }
 
         [RelayCommand]
         public void ClearWebCache()
         {
+            CancellationToken token = tokenSource.Token;
             string newProfile = Path.Combine(nameof(WebView2Profile), Guid.NewGuid().ToString());
-            WeakReferenceMessenger.Default.Send<StateChanged>(new((State.Start, newProfile)));
+            WeakReferenceMessenger.Default.Send<StateChanged>(new((State.Start, newProfile),token));
             WebView2Profile = newProfile;
         }
     }
