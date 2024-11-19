@@ -36,30 +36,17 @@
 
     <Border CornerRadius="10" Background="DarkGray" >
         <StackPanel Margin="10">
-            <ComboBox FontSize="15" FontFamily="Arial" 
+            <DockPanel LastChildFill="True">
+                <ComboBox FontSize="17" FontFamily="Arial" 
                       SelectedValue="{Binding SelectedConfigId}" 
                       SelectedValuePath="Key"
                       DisplayMemberPath="Value"
                       Text="{Binding SelectedConfig.Name, UpdateSourceTrigger=PropertyChanged, Mode=OneWayToSource}"
                       IsEditable="{Binding CanModified}"
                       ItemsSource="{Binding Configs}">
-            </ComboBox>
-
-            <!--<StackPanel>
-                <StackPanel.Style>
-                    <Style TargetType="StackPanel">
-                        <Setter Property="Visibility" Value="Hidden" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SelectedConfigId}" Value="-1">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Name"/>
-                <TextBox Text="{Binding SelectedConfig.Name ,UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="30"/>
-            </StackPanel>-->
-
+                </ComboBox>
+            </DockPanel>
+            
             <TextBlock Text="SearchText"/>
             <DockPanel LastChildFill="True">
                 <TextBox DockPanel.Dock="Right" Text="{Binding SelectedConfig.NumberUrls, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" TextAlignment="Center" Margin="5,0,0,0" Height="30" Width="30" PreviewTextInput="PreviewTextInput"/>

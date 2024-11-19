@@ -115,6 +115,7 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (LoopCount > 0 && !token.IsCancellationRequested)
             {
+                LoopCount--;
                 await StateMachine.FireAsync(Trigger.Next, token);
             }
             else
@@ -151,7 +152,7 @@ namespace AutoGenerateContent.ViewModel
         {
             CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
-            List<Task> tasks = new();
+            List<Task> tasks = [];
             while (GoogleContents.Count < Sidebar.SelectedConfig.NumberUrls && GoogleUrls.Count > 0)
             {
                 foreach (var url in GoogleUrls.Take(5))
@@ -187,7 +188,7 @@ namespace AutoGenerateContent.ViewModel
                                     GoogleUrls.Remove(url);
                                     if (cleanedContent.Length > 20000)
                                     {
-                                        cleanedContent = cleanedContent.Substring(0, 20000) + "tham khảo nguồn" + url;
+                                        cleanedContent = $"{cleanedContent[..20000]}. Reference: {url}";
                                     }
                                     else
                                     {

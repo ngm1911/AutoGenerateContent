@@ -28,10 +28,12 @@ namespace AutoGenerateContent
             InitializeComponent();
         }
 
-        private void PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+        private new void PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
         {
-            Regex regex = new Regex("[^0-9]+");
-            e.Handled = regex.IsMatch(e.Text);
+            e.Handled = NumberRegex().IsMatch(e.Text);
         }
+
+        [GeneratedRegex("[^0-9]+")]
+        private static partial Regex NumberRegex();
     }
 }

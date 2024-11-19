@@ -186,7 +186,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                 else
                 {
                     _viewModel.HtmlContent = html;
-                    await File.WriteAllTextAsync(Path.Combine("Output", $"{Guid.NewGuid}.html"), html, token);
+                    await File.WriteAllTextAsync(Path.Combine("Output", $"{Guid.NewGuid()}.html"), html, token);
                     await Task.Delay(r.Next(400, 600), token);
                     webView.CoreWebView2.NavigateToString(html);
 

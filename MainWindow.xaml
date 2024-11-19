@@ -55,12 +55,20 @@
         <StackPanel DockPanel.Dock="Left" Width="350">
             <local:SideBar Margin="10"/>
 
-            <GroupBox Header="Start option" Margin="10" FontSize="15" FontWeight="Bold">
+            <GroupBox Margin="10">
+                <GroupBox.Header>
+                    <TextBlock Text="Start option" />
+                </GroupBox.Header>
                 <StackPanel>
-                    <!--<TextBox DockPanel.Dock="Right" 
-                             Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                             TextAlignment="Center" Margin="5,0,0,0" Height="30" Width="30" 
-                             PreviewTextInput="PreviewTextInput"/>-->
+                    <StackPanel Orientation="Horizontal">
+                        <Label Content="Loop count:"/>
+                        <TextBox
+                                 Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                 TextAlignment="Center" Margin="5,0,0,0" Height="25" Width="25" 
+                                VerticalContentAlignment="Center"
+                                 PreviewTextInput="PreviewTextInput"/>
+                    </StackPanel>
+                    
                     <Button Command="{Binding StartCommand}" 
                             Width="auto" 
                             Height="35"
