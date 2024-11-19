@@ -152,55 +152,59 @@ namespace AutoGenerateContent.ViewModel
             CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             List<Task> tasks = new();
-            foreach (var url in GoogleUrls)
+            while (GoogleContents.Count < Sidebar.SelectedConfig.NumberUrls && GoogleUrls.Count > 0)
             {
-                tasks.Add(Task.Run(async () =>
+                foreach (var url in GoogleUrls.Take(5))
                 {
-                    try
+                    tasks.Add(Task.Run(async () =>
                     {
-                        using (HttpClient client = new HttpClient())
+                        try
                         {
-                            var response = await client.GetStringAsync(url, token);
-                            var htmlDoc = new HtmlDocument();
-                            htmlDoc.LoadHtml(response);
-                            var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
-                            var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
-                            if (unwantedNodes != null)
+                            using (HttpClient client = new HttpClient())
                             {
-                                foreach (var node in unwantedNodes)
+                                var response = await client.GetStringAsync(url, token);
+                                var htmlDoc = new HtmlDocument();
+                                htmlDoc.LoadHtml(response);
+                                var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
+                                var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
+                                if (unwantedNodes != null)
                                 {
-                                    node.Remove();
+                                    foreach (var node in unwantedNodes)
+                                    {
+                                        node.Remove();
+                                    }
                                 }
-                            }
-                            string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
-                            cleanedContent = cleanedContent.Replace("\t", "");
-                            cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-                            cleanedContent = string.Join("<br>", cleanedContent.Split(["\r", "\n"], StringSplitOptions.RemoveEmptyEntries));
-                            cleanedContent = cleanedContent.Replace("\\", "")
-                                                           .Replace("'", "")
-                                                           .Replace("\"", "")
-                                                           .Replace("\t", "");
-                            if (string.IsNullOrWhiteSpace(cleanedContent) == false)
-                            {
-                                GoogleUrls.Remove(url);
-                                if (cleanedContent.Length > 20000)
+                                string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
+                                cleanedContent = cleanedContent.Replace("\t", "");
+                                cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
+                                cleanedContent = string.Join("<br>", cleanedContent.Split(["\r", "\n"], StringSplitOptions.RemoveEmptyEntries));
+                                cleanedContent = cleanedContent.Replace("\\", "")
+                                                               .Replace("'", "")
+                                                               .Replace("\"", "")
+                                                               .Replace("\t", "");
+                                if (string.IsNullOrWhiteSpace(cleanedContent) == false)
                                 {
-                                    GoogleContents.Add("tham khảo nguồn" + url);
-                                }
-                                else
-                                {
-                                    GoogleContents.Add(cleanedContent);
+                                    GoogleUrls.Remove(url);
+                                    if (cleanedContent.Length > 20000)
+                                    {
+                                        cleanedContent = cleanedContent.Substring(0, 20000) + "tham khảo nguồn" + url;
+                                    }
+                                    else
+                                    {
+                                        GoogleContents.Add(cleanedContent);
+                                    }
                                 }
                             }
                         }
-                    }
-                    catch (Exception ex)
-                    {
+                        catch (Exception ex)
+                        {
 
-                    }
-                }, token));
+                        }
+                    }, token));
+                }
+                Task.WaitAll([.. tasks], token);
             }
-            Task.WaitAll([.. tasks], token);
+            GoogleContents = GoogleContents.Take(Sidebar.SelectedConfig.NumberUrls).ToList();
             await StateMachine.FireAsync(Trigger.Next, token);
         }
 

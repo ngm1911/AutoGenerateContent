@@ -156,9 +156,6 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                                 hosts.Add(uri.Host);
                                 _viewModel.GoogleUrls.Add(href);
                             }
-                            if (_viewModel.GoogleUrls.Count >= _viewModel.Sidebar.SelectedConfig.NumberUrls)
-                                break;
-
                         }
                         await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next, token);
                     });
@@ -284,14 +281,10 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                     {
                         await CloseDialogLogin();
                         await ClickButtonContinue();
+                        await ClickButtonPrefer();
                         var text = await webView.ExecuteScriptAsync(@"document.getElementsByClassName('group/conversation-turn')[document.getElementsByClassName('group/conversation-turn').length - 1].innerText");
                         if (token.IsCancellationRequested == false && guid != "Finihshed")
                         {
-                            if (text.Contains("I prefer this response"))
-                            {
-                                await ClickButtonPrefer();
-                            }
-
                             if (text.EndsWith("4o mini\"")
                                 || retry <= 0
                                 || text.Contains("The message you submitted was too long"))
@@ -353,7 +346,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                 {
                     await ClickButtonSkipLogin();
                     await CloseDialogLogin();
-                    await webView.ExecuteScriptAsync($@"document.querySelector('div[id=""prompt-textarea""]').innerHTML='{prompt}';");
+                    await webView.ExecuteScriptAsync($@"document.querySelector('div[id=""prompt-textarea""]').innerHTML='{HttpUtility.HtmlEncode(prompt)}';");
 
                     await CloseDialogLogin();
                     await webView.ExecuteScriptAsync($@"document.querySelector('button[data-testid=""send-button""]').click();");

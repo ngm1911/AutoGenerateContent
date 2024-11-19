@@ -57,10 +57,10 @@
 
             <GroupBox Header="Start option" Margin="10" FontSize="15" FontWeight="Bold">
                 <StackPanel>
-                    <TextBox DockPanel.Dock="Right" 
+                    <!--<TextBox DockPanel.Dock="Right" 
                              Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                              TextAlignment="Center" Margin="5,0,0,0" Height="30" Width="30" 
-                             PreviewTextInput="PreviewTextInput"/>
+                             PreviewTextInput="PreviewTextInput"/>-->
                     <Button Command="{Binding StartCommand}" 
                             Width="auto" 
                             Height="35"
