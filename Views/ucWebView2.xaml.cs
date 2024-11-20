@@ -313,9 +313,19 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                                             break;
 
                                         case State.SummaryContent:
+                                        case State.AskTitle:
                                             var html = GetHtmlRegex().Match(text.Replace("\\u003C", "<").Replace("\\n", ""));
                                             Log.Logger.Information(html.Value);
-                                            if (string.IsNullOrWhiteSpace(html.Value) == false)
+                                            if (string.IsNullOrWhiteSpace(html.Value) && _viewModel.StateMachine.State == State.AskTitle)
+                                            {
+                                                var title = GetTitleRegex().Match(text.Replace("\\u003C", "<").Replace("\\n", ""));
+                                                guid = "Finihshed";
+                                                await Task.Delay(r.Next(200, 500));
+                                                var oldTitle = GetTitleRegex().Match(_viewModel.HtmlContent.Replace("\\u003C", "<").Replace("\\n", ""));
+                                                _viewModel.HtmlContent = _viewModel.HtmlContent.Replace(oldTitle.Value, title.Value);
+                                                await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                            }
+                                            else if (string.IsNullOrWhiteSpace(html.Value) == false)
                                             {
                                                 guid = "Finihshed";
                                                 await Task.Delay(r.Next(200, 500));
@@ -408,5 +418,8 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
 
         [GeneratedRegex(@"<html.*?>.*?</html>")]
         private static partial Regex GetHtmlRegex();
+
+        [GeneratedRegex(@"<title.*?>.*?</title>")]
+        private static partial Regex GetTitleRegex();
     }
 }

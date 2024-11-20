@@ -34,6 +34,9 @@ namespace AutoGenerateContent.ViewModel
         [ObservableProperty]
         string time;
 
+        public string StatusTitle => StateMachine.State == State.Start ? string.Empty : StateMachine.State.ToString();
+        public string BtnStartContent => StateMachine.State == State.Start ? "Start" : "Stop";
+
         [ObservableProperty]
         SideBarViewModel sidebar;
 
@@ -69,7 +72,11 @@ namespace AutoGenerateContent.ViewModel
         private void InitStateMachine()
         {
             StateMachine = new StateMachine<State, Trigger>(State.Start);
-
+            StateMachine.OnTransitioned(_ =>
+            {
+                OnPropertyChanged(nameof(StatusTitle));
+                OnPropertyChanged(nameof(BtnStartContent));
+            });
             StateMachine.Configure(State.Start)
                 .PermitIf(Trigger.Next, State.Init, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnIdle);
@@ -97,16 +104,23 @@ namespace AutoGenerateContent.ViewModel
                 .OnEntryAsync(OnAskChatGpt);
 
             StateMachine.Configure(State.SummaryContent)
-                .PermitIf(Trigger.Next, State.SearchImage, () => !tokenSource.IsCancellationRequested)
+                .PermitIf(Trigger.Next, State.AskTitle, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnSummaryContent);
+            
+            StateMachine.Configure(State.AskTitle)
+                .PermitIf(Trigger.Next, State.SearchImage, () => !tokenSource.IsCancellationRequested)
+                .OnEntryAsync(OnAskTitle);
 
             StateMachine.Configure(State.SearchImage)
                 .PermitIf(Trigger.Next, State.Finish, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnSearchImage);
-
+            
             StateMachine.Configure(State.Finish)
                 .PermitIf(Trigger.Start, State.Start, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnFinish);
+
+            OnPropertyChanged(nameof(StatusTitle));
+            OnPropertyChanged(nameof(BtnStartContent));
         }
 
         private async Task OnIdle()
@@ -246,7 +260,17 @@ namespace AutoGenerateContent.ViewModel
                 WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptSummary, SummaryContents.ToArray()), token));
             }
         }
-        
+
+        private async Task OnAskTitle()
+        {
+            CancellationToken token = tokenSource.Token;
+            OnPropertyChanged(nameof(StateMachine));
+            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptTitle) == false)
+            {
+                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(Sidebar.SelectedConfig.PromptTitle, token));
+            }
+        }
+
         private async Task OnSearchImage()
         {
             CancellationToken token = tokenSource.Token;
@@ -256,7 +280,7 @@ namespace AutoGenerateContent.ViewModel
                 WeakReferenceMessenger.Default.Send<SearchImage>(new(new (Sidebar.SelectedConfig.SearchImageText, HtmlContent), token));
             }
         }
-        
+
         private async Task OnFinish()
         {
             OnPropertyChanged(nameof(StateMachine));
@@ -301,6 +325,7 @@ namespace AutoGenerateContent.ViewModel
         Intro,
         AskChatGpt,
         SummaryContent,
+        AskTitle,
         SearchImage,
         Finish
     }

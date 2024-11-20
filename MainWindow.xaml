@@ -16,6 +16,35 @@
             <Setter Property="Margin" Value="0,10,0,5"/>
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
+        <Style x:Key="ToggleStartButton" TargetType="{x:Type ToggleButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border" CornerRadius="8" Background="LightGray" BorderThickness="1" Padding="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="LightBlue"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="LightGray"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Content" Value="{Binding BtnStartContent}"></Setter>
+            <Setter Property="Width" Value="auto"/>
+            <Setter Property="Height" Value="35"/>
+            <Setter Property="BorderBrush" Value="LightGray"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
         <Style TargetType="{x:Type Button}">
             <Setter Property="Template">
                 <Setter.Value>
@@ -55,24 +84,21 @@
         <StackPanel DockPanel.Dock="Left" Width="350">
             <local:SideBar Margin="10"/>
 
-            <GroupBox Margin="10">
+            <GroupBox Margin="10" Padding="5">
                 <GroupBox.Header>
-                    <TextBlock Text="Start option" />
+                    <TextBlock Text="Option" />
                 </GroupBox.Header>
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <Label Content="Loop count:"/>
-                        <TextBox
-                                 Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                                 TextAlignment="Center" Margin="5,0,0,0" Height="25" Width="25" 
-                                VerticalContentAlignment="Center"
+                        <Label Content="Loop:"/>
+                        <TextBox Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                 TextAlignment="Right" Margin="5,0,0,5" Height="25" Width="35" 
+                                 Padding="3"
+                                 VerticalContentAlignment="Center"
                                  PreviewTextInput="PreviewTextInput"/>
                     </StackPanel>
-                    
-                    <Button Command="{Binding StartCommand}" 
-                            Width="auto" 
-                            Height="35"
-                            Content="{Binding StateMachine.State}"/>
+
+                    <ToggleButton Command="{Binding StartCommand}" Style="{StaticResource ToggleStartButton}" />
                 </StackPanel>
             </GroupBox>
         </StackPanel>
@@ -88,7 +114,12 @@
                 <RowDefinition Height="0.5*"/>
                 <RowDefinition Height="9*"/>
             </Grid.RowDefinitions>
-            <TextBlock HorizontalAlignment="Right" Text="{Binding Time}" Grid.Row="0" Margin="0,10,5,5" FontSize="30"/>
+            <Border BorderThickness="0,0,0,1" BorderBrush="Black" Grid.Row="0" CornerRadius="4" Margin="2">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding StatusTitle}"  Margin="15,5" FontSize="25" Foreground="Blue"/>
+                    <TextBlock HorizontalAlignment="Right" DockPanel.Dock="Right" Text="{Binding Time}" Grid.Row="0" Margin="5,5,15,5" FontSize="30"/>
+                </DockPanel>
+            </Border>
             <ItemsControl Grid.Row="1" ItemsSource="{Binding WebView2List}" Margin="5,0,5,5">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>

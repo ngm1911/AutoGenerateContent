@@ -62,7 +62,8 @@ namespace AutoGenerateContent.ViewModel
 
         [RelayCommand(CanExecute = nameof(canSaveClick))]
         private async Task SaveConfig()
-        { 
+        {
+            var recentId = SelectedConfig.Id;
             if (SelectedConfig.Id == -1)
             {
                 var newConfig = new Config()
@@ -74,12 +75,13 @@ namespace AutoGenerateContent.ViewModel
                     PromptText = SelectedConfig.PromptText,
                     PromptSummary = SelectedConfig.PromptSummary,
                     SearchImageText = SelectedConfig.SearchImageText,
+                    PromptTitle = SelectedConfig.PromptTitle,
                 };
                 await _context.Configs.AddAsync(newConfig);
             }
 
             await _context.SaveChangesAsync();
-            LoadConfigs();
+            LoadConfigs(recentId);
         }
 
         private bool canDeleteClick => SelectedConfigId != -1;
@@ -97,7 +99,7 @@ namespace AutoGenerateContent.ViewModel
             LoadConfigs();
         }
 
-        private void LoadConfigs()
+        private void LoadConfigs(int? recentId = null)
         {
             _context.Configs.Select(c => new KeyValuePair<int, string>(c.Id, c.Name))
                             .ToListAsync()
@@ -106,7 +108,7 @@ namespace AutoGenerateContent.ViewModel
                                 SelectedConfigId = 0;
                                 Configs = new ObservableCollection<KeyValuePair<int, string>>(t.Result);
                                 Configs.Insert(0, new KeyValuePair<int, string>(-1, "[Create configs]"));
-                                SelectedConfigId = -1;
+                                SelectedConfigId = recentId ?? Configs.LastOrDefault().Key;
                             }, TaskContinuationOptions.ExecuteSynchronously);
         }
     }

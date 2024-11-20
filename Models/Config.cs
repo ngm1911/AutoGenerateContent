@@ -29,6 +29,9 @@ namespace AutoGenerateContent.Models
 
         [ObservableProperty]
         string? searchImageText;
+        
+        [ObservableProperty]
+        string? promptTitle;
 
         [NotMapped]
         public bool IsChanged = false;
