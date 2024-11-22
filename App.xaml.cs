@@ -58,12 +58,13 @@ namespace AutoGenerateContent
             if (e.Exception is OperationCanceledException canceledException)
             {
                 Log.Logger.Error($"{canceledException.Message}");
-                Console.WriteLine($"OperationCanceledException in UI thread: {canceledException.Message}");
+                Log.Logger.Error($"{canceledException.StackTrace}");
                 e.Handled = true;
             }
             else
             {
                 Log.Logger.Error($"{e.Exception.Message}");
+                Log.Logger.Error($"{e.Exception.StackTrace}");
                 e.Handled = true;
             }
         }
@@ -71,6 +72,7 @@ namespace AutoGenerateContent
         private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
         {
             Log.Logger.Error("TaskScheduler_UnobservedTaskException");
+            Log.Logger.Error(e.Exception.StackTrace);
             e.SetObserved();
         }
 

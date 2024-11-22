@@ -185,6 +185,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                 }
                 else
                 {
+                    html = html.Replace("\\\"", "\"");
                     _viewModel.HtmlContent = html;
                     await File.WriteAllTextAsync(Path.Combine("Output", $"{Guid.NewGuid()}.html"), html, token);
                     await Task.Delay(r.Next(400, 600), token);
@@ -314,8 +315,8 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
 
                                     case State.SummaryContent:
                                         var html = GetHtmlRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
-                                        Log.Logger.Information(html.Value);
-                                        if (string.IsNullOrWhiteSpace(html.Value) == false)
+                                        Log.Logger.Information(html?.Value);
+                                        if (string.IsNullOrWhiteSpace(html?.Value) == false)
                                         {
                                             guid = "Finihshed";
                                             await Task.Delay(r.Next(200, 500));
@@ -330,27 +331,17 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
 
 
                                     case State.AskTitle:
-                                        var html1 = GetHtmlRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
-                                        Log.Logger.Information(html1.Value);
-                                        if (string.IsNullOrWhiteSpace(html1.Value))
+                                        var title = GetTitleRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
+                                        Log.Logger.Information(title?.Value);
+                                        if (string.IsNullOrWhiteSpace(title?.Value) == false)
                                         {
-                                            var title = GetTitleRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
                                             guid = "Finihshed";
                                             await Task.Delay(r.Next(200, 500));
                                             var oldTitle = GetTitleRegex().Match(_viewModel.HtmlContent);
                                             var h1Title = GetH1Regex().Match(_viewModel.HtmlContent);
-                                            _viewModel.HtmlContent = _viewModel.HtmlContent.Replace(oldTitle.Value, title.Value).Replace(h1Title.Value, title.Value.Replace("title", "h1"));
+                                            _viewModel.HtmlContent = _viewModel.HtmlContent.Replace(oldTitle.Value, title?.Value).Replace(h1Title.Value, title?.Value.Replace("title", "h1"));
                                             await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                                        }
-                                        else if (string.IsNullOrWhiteSpace(html1.Value) == false)
-                                        {
-                                            guid = "Finihshed";
-                                            await Task.Delay(r.Next(200, 500));
 
-                                            var title = GetTitleRegex().Match(html1.Value);
-                                            var h1Title = GetH1Regex().Match(html1.Value);
-                                            _viewModel.HtmlContent = html1.Value.Replace(h1Title.Value, title.Value.Replace("title", "h1"));
-                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
                                         }
                                         else
                                         {
@@ -436,13 +427,13 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
             }
         }
 
-        [GeneratedRegex(@"<html.*?>.*?</html>")]
+        [GeneratedRegex(@"<html.*?>.+?</html>")]
         private static partial Regex GetHtmlRegex();
 
-        [GeneratedRegex(@"<title.*?>.*?</title>")]
+        [GeneratedRegex(@"<title\b[^>]*>([^<]*)<\/title>(?!.*<\/title>)")]
         private static partial Regex GetTitleRegex();
 
-        [GeneratedRegex(@"<h1.*?>.*?</h1>")]
+        [GeneratedRegex(@"<h1\b[^>]*>(.*?)<\/h1>(?!.*<h1\b)")]
         private static partial Regex GetH1Regex();
     }
 }
