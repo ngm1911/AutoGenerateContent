@@ -290,54 +290,74 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                                 || text.Contains("The message you submitted was too long"))
                             {
                                 switch (_viewModel.StateMachine.State)
-                                    {
-                                        case State.AskChatGpt:
-                                            guid = "Finihshed";
-                                            if (_viewModel.GoogleContents.Count > 0)
+                                {
+                                    case State.AskChatGpt:
+                                        guid = "Finihshed";
+                                        if (_viewModel.GoogleContents.Count > 0)
+                                        {
+                                            if (retry > 0)
                                             {
-                                                if (retry > 0)
-                                                {
-                                                    _viewModel.SummaryContents.Add(text);
-                                                }
-                                                _viewModel.GoogleContents.RemoveAt(0);
+                                                _viewModel.SummaryContents.Add(text);
                                             }
-                                            if (_viewModel.StateMachine.CanFire(ViewModel.Trigger.Loop))
-                                            {
-                                                await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Loop);
-                                            }
-                                            break;
+                                            _viewModel.GoogleContents.RemoveAt(0);
+                                        }
+                                        if (_viewModel.StateMachine.CanFire(ViewModel.Trigger.Loop))
+                                        {
+                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Loop);
+                                        }
+                                        break;
 
-                                        case State.Intro:
+                                    case State.Intro:
+                                        guid = "Finihshed";
+                                        await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                        break;
+
+                                    case State.SummaryContent:
+                                        var html = GetHtmlRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
+                                        Log.Logger.Information(html.Value);
+                                        if (string.IsNullOrWhiteSpace(html.Value) == false)
+                                        {
                                             guid = "Finihshed";
+                                            await Task.Delay(r.Next(200, 500));
+                                            _viewModel.HtmlContent = html.Value;
                                             await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                                            break;
+                                        }
+                                        else
+                                        {
+                                            goto TRY_AGAIN;
+                                        }
+                                        break;
 
-                                        case State.SummaryContent:
-                                        case State.AskTitle:
-                                            var html = GetHtmlRegex().Match(text.Replace("\\u003C", "<").Replace("\\n", ""));
-                                            Log.Logger.Information(html.Value);
-                                            if (string.IsNullOrWhiteSpace(html.Value) && _viewModel.StateMachine.State == State.AskTitle)
-                                            {
-                                                var title = GetTitleRegex().Match(text.Replace("\\u003C", "<").Replace("\\n", ""));
-                                                guid = "Finihshed";
-                                                await Task.Delay(r.Next(200, 500));
-                                                var oldTitle = GetTitleRegex().Match(_viewModel.HtmlContent.Replace("\\u003C", "<").Replace("\\n", ""));
-                                                _viewModel.HtmlContent = _viewModel.HtmlContent.Replace(oldTitle.Value, title.Value);
-                                                await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                                            }
-                                            else if (string.IsNullOrWhiteSpace(html.Value) == false)
-                                            {
-                                                guid = "Finihshed";
-                                                await Task.Delay(r.Next(200, 500));
-                                                _viewModel.HtmlContent = html.Value;
-                                                await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                                            }
-                                            else
-                                            {
-                                                goto TRY_AGAIN;
-                                            }
-                                            break;
-                                    }
+
+                                    case State.AskTitle:
+                                        var html1 = GetHtmlRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
+                                        Log.Logger.Information(html1.Value);
+                                        if (string.IsNullOrWhiteSpace(html1.Value))
+                                        {
+                                            var title = GetTitleRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
+                                            guid = "Finihshed";
+                                            await Task.Delay(r.Next(200, 500));
+                                            var oldTitle = GetTitleRegex().Match(_viewModel.HtmlContent);
+                                            var h1Title = GetH1Regex().Match(_viewModel.HtmlContent);
+                                            _viewModel.HtmlContent = _viewModel.HtmlContent.Replace(oldTitle.Value, title.Value).Replace(h1Title.Value, title.Value.Replace("title", "h1"));
+                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                        }
+                                        else if (string.IsNullOrWhiteSpace(html1.Value) == false)
+                                        {
+                                            guid = "Finihshed";
+                                            await Task.Delay(r.Next(200, 500));
+
+                                            var title = GetTitleRegex().Match(html1.Value);
+                                            var h1Title = GetH1Regex().Match(html1.Value);
+                                            _viewModel.HtmlContent = html1.Value.Replace(h1Title.Value, title.Value.Replace("title", "h1"));
+                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                        }
+                                        else
+                                        {
+                                            goto TRY_AGAIN;
+                                        }
+                                        break;
+                                }
                             }
                             else
                             {
@@ -421,5 +441,8 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
 
         [GeneratedRegex(@"<title.*?>.*?</title>")]
         private static partial Regex GetTitleRegex();
+
+        [GeneratedRegex(@"<h1.*?>.*?</h1>")]
+        private static partial Regex GetH1Regex();
     }
 }
