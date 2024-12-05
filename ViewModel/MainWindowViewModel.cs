@@ -1,13 +1,13 @@
 ﻿using AutoGenerateContent.Event;
+using AutoGenerateContent.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using HtmlAgilityPack;
 using Stateless;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Net.Http;
-using System.Web;
+using System.Text.RegularExpressions;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace AutoGenerateContent.ViewModel
 {
@@ -17,7 +17,8 @@ namespace AutoGenerateContent.ViewModel
         string WebView2Profile;
         public string HtmlContent;
         System.Timers.Timer timer = new System.Timers.Timer(TimeSpan.FromSeconds(1));
-        TimeSpan span;
+        TimeSpan span; 
+        ProcessService _processService;
 
         [ObservableProperty]
         ObservableCollection<string> webView2List;
@@ -46,9 +47,11 @@ namespace AutoGenerateContent.ViewModel
 
         public List<string> SummaryContents = [];
 
-        public MainWindowViewModel(SideBarViewModel sideBarViewModel)
+        public MainWindowViewModel(SideBarViewModel sideBarViewModel, ProcessService processService)
         {
             Sidebar = sideBarViewModel;
+            _processService = processService;
+
             InitStateMachine();
             if (Directory.Exists(nameof(WebView2Profile)))
             {
@@ -141,6 +144,7 @@ namespace AutoGenerateContent.ViewModel
 
         private async Task OnStart()
         {
+            _processService.UpdateMode(Sidebar.SelectedConfig.Mode);
             await tokenSource.CancelAsync();
             tokenSource = new CancellationTokenSource();
             CancellationToken token = tokenSource.Token;
@@ -155,7 +159,7 @@ namespace AutoGenerateContent.ViewModel
             WebView2List = [Guid.NewGuid().ToString()];
         }
         
-        private void OnSearchKeyword()
+        private async void OnSearchKeyword()
         {
             CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
@@ -171,51 +175,19 @@ namespace AutoGenerateContent.ViewModel
             {
                 foreach (var url in GoogleUrls.Take(5))
                 {
-                    tasks.Add(Task.Run(async () =>
+                    tasks.Add(_processService.OnReadHtmlContent(url, GoogleUrls, GoogleContents, token).ContinueWith(t =>
                     {
-                        try
+                        var cleanedContent = t.Result;
+                        GoogleUrls.Remove(url);
+                        if (string.IsNullOrWhiteSpace(cleanedContent) == false)
                         {
-                            using (HttpClient client = new HttpClient())
+                            if (cleanedContent.Length > 20000)
                             {
-                                var response = await client.GetStringAsync(url, token);
-                                var htmlDoc = new HtmlDocument();
-                                htmlDoc.LoadHtml(response);
-                                var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
-                                var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside");
-                                if (unwantedNodes != null)
-                                {
-                                    foreach (var node in unwantedNodes)
-                                    {
-                                        node.Remove();
-                                    }
-                                }
-                                string cleanedContent = HttpUtility.HtmlDecode(bodyNode.InnerText).Trim();
-                                cleanedContent = cleanedContent.Replace("\t", "");
-                                cleanedContent = string.Join(" ", cleanedContent.Split(" ", StringSplitOptions.RemoveEmptyEntries));
-                                cleanedContent = string.Join("<br>", cleanedContent.Split(["\r", "\n"], StringSplitOptions.RemoveEmptyEntries));
-                                cleanedContent = cleanedContent.Replace("\\", "")
-                                                               .Replace("'", "")
-                                                               .Replace("\"", "")
-                                                               .Replace("\t", "");
-                                if (string.IsNullOrWhiteSpace(cleanedContent) == false)
-                                {
-                                    GoogleUrls.Remove(url);
-                                    if (cleanedContent.Length > 20000)
-                                    {
-                                        cleanedContent = $"{cleanedContent[..20000]}. Reference: {url}";
-                                    }
-                                    else
-                                    {
-                                        GoogleContents.Add(cleanedContent);
-                                    }
-                                }
+                                cleanedContent = $"{cleanedContent[..20000]}. Reference: {url}";
                             }
+                            GoogleContents.Add(cleanedContent);
                         }
-                        catch (Exception ex)
-                        {
-
-                        }
-                    }, token));
+                    }));
                 }
                 Task.WaitAll([.. tasks], token);
             }
@@ -229,7 +201,16 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (GoogleContents.Count > 0)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault()), token));
+                string content = await _processService.OnAskChatGpt(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault(), token);
+                if (string.IsNullOrWhiteSpace(content) == false)
+                {
+                    SummaryContents.Add(content);
+                    GoogleContents.RemoveAt(0);
+                    if (StateMachine.CanFire(Trigger.Loop))
+                    {
+                        await StateMachine.FireAsync(Trigger.Loop);
+                    }
+                }
             }
             else
             {
@@ -243,7 +224,11 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptIntro) == false)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(Sidebar.SelectedConfig.PromptIntro, token));
+                bool finish = await _processService.OnIntro(Sidebar.SelectedConfig.PromptIntro, token);
+                if (finish)
+                {
+                    await StateMachine.FireAsync(ViewModel.Trigger.Next);
+                }
             }
             else
             {
@@ -257,7 +242,12 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptSummary) == false)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(string.Format(Sidebar.SelectedConfig.PromptSummary, SummaryContents.ToArray()), token));
+                var html = await _processService.OnSummaryContent(Sidebar.SelectedConfig.PromptSummary, SummaryContents, token);
+                if (string.IsNullOrWhiteSpace(html) == false)
+                {
+                    HtmlContent = html;
+                    await StateMachine.FireAsync(ViewModel.Trigger.Next);
+                }
             }
         }
 
@@ -267,7 +257,17 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptTitle) == false)
             {
-                WeakReferenceMessenger.Default.Send<AskChatGpt>(new(Sidebar.SelectedConfig.PromptTitle, token));
+                var title = await _processService.OnAskTitle(Sidebar.SelectedConfig.PromptTitle, token);
+                if (string.IsNullOrWhiteSpace(title) == false)
+                {
+                    if (title != "finish")
+                    {
+                        var oldTitle = GetTitleRegex().Match(HtmlContent);
+                        var h1Title = GetH1Regex().Match(HtmlContent);
+                        HtmlContent = HtmlContent.Replace(oldTitle.Value, title).Replace(h1Title.Value, title.Replace("title", "h1"));
+                    }
+                    await StateMachine.FireAsync(ViewModel.Trigger.Next);
+                }
             }
         }
 
@@ -277,7 +277,11 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.SearchImageText) == false)
             {
-                WeakReferenceMessenger.Default.Send<SearchImage>(new(new (Sidebar.SelectedConfig.SearchImageText, HtmlContent), token));
+                var result = await _processService.OnSearchImage(Sidebar.SelectedConfig.SearchImageText, HtmlContent, token);
+                if (result)
+                {
+                    await StateMachine.FireAsync(ViewModel.Trigger.Next);
+                }
             }
         }
 
@@ -314,6 +318,13 @@ namespace AutoGenerateContent.ViewModel
             WeakReferenceMessenger.Default.Send<StateChanged>(new((State.Start, newProfile),token));
             WebView2Profile = newProfile;
         }
+
+
+        [GeneratedRegex(@"<title\b[^>]*>([^<]*)<\/title>(?!.*<\/title>)")]
+        private static partial Regex GetTitleRegex();
+
+        [GeneratedRegex(@"<h1\b[^>]*>(.*?)<\/h1>(?!.*<h1\b)")]
+        private static partial Regex GetH1Regex();
     }
 
     public enum State

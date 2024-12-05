@@ -37,4 +37,10 @@ namespace AutoGenerateContent.Event
         public readonly CancellationToken Token;
         public OnStart(string keyword, CancellationToken token) : base(keyword) => this.Token = token;
     }
+    
+    public class UpdateHtml : ValueChangedMessage<string>
+    {
+        public readonly CancellationToken Token;
+        public UpdateHtml(string html, CancellationToken token) : base(html) => this.Token = token;
+    }
 }

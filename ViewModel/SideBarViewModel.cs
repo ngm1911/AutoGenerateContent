@@ -76,6 +76,7 @@ namespace AutoGenerateContent.ViewModel
                     PromptSummary = SelectedConfig.PromptSummary,
                     SearchImageText = SelectedConfig.SearchImageText,
                     PromptTitle = SelectedConfig.PromptTitle,
+                    Mode = SelectedConfig.Mode,
                 };
                 await _context.Configs.AddAsync(newConfig);
             }

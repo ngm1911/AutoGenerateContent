@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using AutoGenerateContent.Services;
+using CommunityToolkit.Mvvm.ComponentModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -32,6 +33,9 @@ namespace AutoGenerateContent.Models
         
         [ObservableProperty]
         string? promptTitle;
+
+        [ObservableProperty]
+        ProcessMode? mode;
 
         [NotMapped]
         public bool IsChanged = false;

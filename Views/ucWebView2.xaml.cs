@@ -33,6 +33,18 @@ namespace AutoGenerateContent.Views
 
             _syncContext = SynchronizationContext.Current;
 
+            WeakReferenceMessenger.Default.Register<UpdateHtml>(this, async (r, m) =>
+            {
+                _syncContext!.Post(_ =>
+                {
+                    try
+                    {
+                        webView.CoreWebView2.NavigateToString(m.Value);
+                    }
+                    catch { }
+                }, null);
+            });
+            
             WeakReferenceMessenger.Default.Register<SearchImage>(this, async (r, m) =>
             {
                 await SearchImage(m.Value.Item1, m.Value.Item2, 0, m.Token);
@@ -150,11 +162,13 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                         List<string> hosts = [];
                         foreach(var href in hrefs)
                         {
-                            var uri = new Uri(href);
-                            if (hosts.Any(x => x == uri.Host) == false)
+                            if (Uri.TryCreate(href, new UriCreationOptions(), out Uri? uri))
                             {
-                                hosts.Add(uri.Host);
-                                _viewModel.GoogleUrls.Add(href);
+                                if (hosts.Any(x => x == uri.Host) == false)
+                                {
+                                    hosts.Add(uri.Host);
+                                    _viewModel.GoogleUrls.Add(href);
+                                }
                             }
                         }
                         await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next, token);

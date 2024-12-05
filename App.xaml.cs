@@ -1,4 +1,6 @@
 ﻿using AutoGenerateContent.DatabaseContext;
+using AutoGenerateContent.Interface;
+using AutoGenerateContent.Services;
 using AutoGenerateContent.ViewModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +29,9 @@ namespace AutoGenerateContent
                 {
                     services.AddDbContext<SQLiteContext>(options => options.UseSqlite("Data Source=SQLiteDb.db"))
                             .AddScoped<MainWindowViewModel>()
+                            .AddScoped<ChatGptWebProcessService>()
+                            .AddScoped<GeminiApiProcessService>()
+                            .AddScoped<ProcessService>()
                             .AddScoped<SideBarViewModel>();
 
                     Log.Logger = new LoggerConfiguration()
@@ -72,7 +77,10 @@ namespace AutoGenerateContent
         private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
         {
             Log.Logger.Error("TaskScheduler_UnobservedTaskException");
+            Log.Logger.Error(e.Exception.Message);
             Log.Logger.Error(e.Exception.StackTrace);
+            Log.Logger.Error(e.Exception.InnerException?.Message);
+            Log.Logger.Error(e.Exception.InnerException?.StackTrace);
             e.SetObserved();
         }
 

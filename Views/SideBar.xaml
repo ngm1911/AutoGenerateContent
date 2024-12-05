@@ -5,7 +5,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:AutoGenerateContent.Views"
              xmlns:viewmodel="clr-namespace:AutoGenerateContent.ViewModel"
-             mc:Ignorable="d"
+             mc:Ignorable="d"             
+             xmlns:services="clr-namespace:AutoGenerateContent.Services"
              d:DataContext="{d:DesignInstance Type=viewmodel:SideBarViewModel}"
              d:DesignHeight="550" d:DesignWidth="450"
              xmlns:theme="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2">
@@ -32,6 +33,13 @@
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
 
+        <ObjectDataProvider x:Key="enumValues"
+                     MethodName="GetValues" ObjectType="{x:Type services:ProcessMode}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="services:ProcessMode"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+
     </UserControl.Resources>
 
     <Border CornerRadius="10" Background="DarkGray" >
@@ -46,7 +54,18 @@
                       ItemsSource="{Binding Configs}">
                 </ComboBox>
             </DockPanel>
-            
+
+            <TextBlock Text="Type"/>
+            <ComboBox Height="30"
+                      ItemsSource="{Binding Source={StaticResource enumValues}}"
+                      SelectedValue="{Binding SelectedConfig.Mode, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock FontSize="13" Text="{Binding Path=.}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
             <TextBlock Text="SearchText"/>
             <DockPanel LastChildFill="True">
                 <TextBox DockPanel.Dock="Right" Text="{Binding SelectedConfig.NumberUrls, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" TextAlignment="Center" Margin="5,0,0,0" Height="30" Width="30" PreviewTextInput="PreviewTextInput"/>
