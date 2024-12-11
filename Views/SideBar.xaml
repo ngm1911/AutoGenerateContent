@@ -33,12 +33,12 @@
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
 
-        <ObjectDataProvider x:Key="enumValues"
+        <!--<ObjectDataProvider x:Key="enumValues"
                      MethodName="GetValues" ObjectType="{x:Type services:ProcessMode}">
             <ObjectDataProvider.MethodParameters>
                 <x:Type TypeName="services:ProcessMode"/>
             </ObjectDataProvider.MethodParameters>
-        </ObjectDataProvider>
+        </ObjectDataProvider>-->
 
     </UserControl.Resources>
 
@@ -55,7 +55,7 @@
                 </ComboBox>
             </DockPanel>
 
-            <TextBlock Text="Type"/>
+            <!--<TextBlock Text="Type"/>
             <ComboBox Height="30"
                       ItemsSource="{Binding Source={StaticResource enumValues}}"
                       SelectedValue="{Binding SelectedConfig.Mode, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}">
@@ -64,7 +64,7 @@
                         <TextBlock FontSize="13" Text="{Binding Path=.}"/>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
-            </ComboBox>
+            </ComboBox>-->
 
             <TextBlock Text="SearchText"/>
             <DockPanel LastChildFill="True">
@@ -75,17 +75,17 @@
             <TextBlock Text="PromptIntro"/>
             <TextBox Text="{Binding SelectedConfig.PromptIntro, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="100"/>
             
-            <TextBlock Text="PromptText"/>
-            <TextBox Text="{Binding SelectedConfig.PromptText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="100"/>
-
-            <TextBlock Text="PromptSummary"/>
-            <TextBox Text="{Binding SelectedConfig.PromptSummary, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="100"/>
-
-            <TextBlock Text="SearchImage"/>
-            <TextBox Text="{Binding SelectedConfig.SearchImageText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="30" />
+            <TextBlock Text="PromptAskNewContent"/>
+            <TextBox Text="{Binding SelectedConfig.PromptAskNewContent, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="100"/>
 
             <TextBlock Text="PromptTitle"/>
             <TextBox Text="{Binding SelectedConfig.PromptTitle, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="60" />
+
+            <TextBlock Text="PromptHeading"/>
+            <TextBox Text="{Binding SelectedConfig.PromptHeading, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="100"/>
+
+            <TextBlock Text="SearchImage"/>
+            <TextBox Text="{Binding SelectedConfig.SearchImageText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Height="30" />
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0" >
                 <Button Command="{Binding SaveConfigCommand}" Content="Save" Margin="0,0,15,0"/>

@@ -1,5 +1,5 @@
 ﻿using AutoGenerateContent.Event;
-using AutoGenerateContent.Interface;
+using AutoGenerateContent.Views;
 using CommunityToolkit.Mvvm.Messaging;
 using HtmlAgilityPack;
 using Mscc.GenerativeAI;
@@ -11,21 +11,23 @@ using System.Text.RegularExpressions;
 
 namespace AutoGenerateContent.Services
 {
-    public partial class GeminiApiProcessService : IProcessService
+    public partial class GeminiApiProcessService
     {
+        GoogleAI googleAI;
         GenerativeModel model;
+        Dictionary<string,string> files = new Dictionary<string, string>();
 
         public Task<string> OnAskChatGpt(string promptText, string googleContents, CancellationToken token)
         {
             return Task.FromResult(googleContents);
         }
 
-        public async Task<string> OnAskTitle(string intro, CancellationToken token)
+        public async Task<string> OnAskTitle(string _title, CancellationToken token)
         {
             try
             {
                 StringBuilder response = new StringBuilder();
-                var responseStream = model.GenerateContentStream(intro);
+                var responseStream = model.GenerateContentStream(_title);
                 await foreach (var stream in responseStream)
                 {
                     response.Append(stream.Text);
@@ -33,13 +35,42 @@ namespace AutoGenerateContent.Services
                 }
 
                 var title = GetTitleRegex().Matches(response.ToString().Replace("\\u003C", "<").Replace("\\n", "").Replace("\n", "")).LastOrDefault();
-                return title?.Value ?? "finish";
+                return title?.Value;
             }
             catch
             {
 
             }
             return "finish";
+        }
+        
+        public async Task<string> OnAskHeading(string promptHeading, string heading, CancellationToken token)
+        {
+            int i = 1;
+        Retry:
+            try
+            {
+                string headingprompt = string.Format(promptHeading, heading);
+                var answer = await model.GenerateContent(headingprompt);
+                var h2New = string.Join("<br>", answer.Text.ReplaceLineEndings()
+                                        .Split(Environment.NewLine)
+                                        .Where(x => x.StartsWith("```") == false
+                                                    && string.IsNullOrWhiteSpace(x) == false
+                                                    && x.ToLower().Contains(heading.ToLower()) == false));
+
+                await Task.Delay(3000);
+                return h2New;
+            }
+            catch (Exception ex)
+            {
+                await Task.Delay(2000 * i);
+                i++;
+                if (i < 5)
+                {
+                    goto Retry;
+                }
+            }
+            return string.Empty;
         }
 
         public Task OnFinish()
@@ -52,50 +83,61 @@ namespace AutoGenerateContent.Services
             throw new NotImplementedException();
         }
 
-        public async Task<bool> OnIntro(string intro, CancellationToken token)
+        public async Task OnIntro(string intro, CancellationToken token)
         {
-            StringBuilder response = new StringBuilder();
-            var responseStream = model.GenerateContentStream(intro);
-            await foreach (var stream in responseStream)
+            try
             {
-                response.Append(stream.Text);
-                WeakReferenceMessenger.Default.Send<UpdateHtml>(new(response.ToString(), token));
+                StringBuilder response = new StringBuilder();
+                var responseStream = model.GenerateContentStream(intro);
+                await foreach (var stream in responseStream)
+                {
+                    response.Append(stream.Text);
+                    WeakReferenceMessenger.Default.Send<UpdateHtml>(new(response.ToString(), token));
+                }
             }
-            return true;
+            catch(Exception ex)
+            {
+
+            }
         }
 
-        public Task<string> OnReadHtmlContent(string url, List<string> GoogleUrls, List<string> GoogleContents, CancellationToken token)
+        public async Task OnReadHtmlContent(string url, CancellationToken token)
         {
-            return Task.Run<string>(async () =>
+            string cleanedContent = string.Empty;
+            try
             {
-                string cleanedContent = string.Empty;
-                try
+                cleanedContent = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.html");
+                using (HttpClient client = new HttpClient())
                 {
-                    cleanedContent = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.html");
-                    using (HttpClient client = new HttpClient())
+                    var response = await client.GetStringAsync(url, token);
+                    var htmlDoc = new HtmlDocument();
+                    htmlDoc.LoadHtml(response);
+                    var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
+                    var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside | //div[contains(@class, 'ad')]");
+                    if (unwantedNodes != null)
                     {
-                        var response = await client.GetStringAsync(url, token);
-                        var htmlDoc = new HtmlDocument();
-                        htmlDoc.LoadHtml(response);
-                        var bodyNode = htmlDoc.DocumentNode.SelectSingleNode("//body");
-                        var unwantedNodes = bodyNode.SelectNodes("//header | //footer | //nav | //aside | //div[contains(@class, 'ad')]");
-                        if (unwantedNodes != null)
+                        foreach (var node in unwantedNodes)
                         {
-                            foreach (var node in unwantedNodes)
-                            {
-                                node.Remove();
-                            }
+                            node.Remove();
                         }
-
-                        htmlDoc.Save(cleanedContent);
                     }
-                }
-                catch (Exception ex)
-                {
 
+                    htmlDoc.Save(cleanedContent);
+                    var mediaResponse = await googleAI.UploadFile(cleanedContent, cancellationToken: token);
+                    files.Add(mediaResponse.Uri, mediaResponse.Name);
                 }
-                return cleanedContent;
-            });
+            }
+            catch (Exception ex)
+            {
+
+            }
+            finally
+            {
+                if (File.Exists(cleanedContent))
+                {
+                    File.Delete(cleanedContent);
+                }
+            }
         }
 
         public Task<bool> OnSearchImage(string searchImageText, string htmlContent, CancellationToken token)
@@ -111,25 +153,60 @@ namespace AutoGenerateContent.Services
 
         public Task OnStart(string apiKey)
         {
-            model = new GenerativeModel() { ApiKey = apiKey };
+            googleAI = new GoogleAI(apiKey);            
+            model = googleAI.GenerativeModel();
             return Task.CompletedTask;
         }
 
-        public async Task<string> OnSummaryContent(string promptSummary, List<string> summaryContents, CancellationToken token)
+        public async Task<string> OnAskFinalHtml(string htmlOriginal, CancellationToken token)
         {
+            var cleanedContent = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.html");
+            await File.WriteAllTextAsync(cleanedContent, htmlOriginal, token);
+            var mediaResponse = await googleAI.UploadFile(cleanedContent, cancellationToken: token);
+            Dictionary<string, string> files = new Dictionary<string, string>();
+            files.Add(mediaResponse.Uri, mediaResponse.Name);
+
+            int i = 1;
+        Retry:
             try
             {
-                var content = new GenerateContentRequest(promptSummary);
-                foreach (var file in summaryContents)
+                var content = new GenerateContentRequest("Đọc file đính kèm, viết lại 1 hoàn chỉnh trang web, fix các lỗi heading, lỗi html cho tôi. Lưu ý phải giữ lại toàn bộ các nội dung của trang web, chỉ chỉnh sửa format cho đúng");
+                foreach (var file in files)
                 {
-                    try
-                    {
-                        var fileUploaded = await model.UploadFile(file, cancellationToken: token);
-                        content.AddMedia(fileUploaded.File);
-                    }
-                    catch (Exception ex)
-                    {
-                    }
+                    content.AddMedia(file.Key);
+                }
+                var answer = await model.GenerateContent(content);                
+                return answer.Text;
+            }
+            catch (Exception ex)
+            {
+                await Task.Delay(2000 * i);
+                i++;
+                if (i < 5)
+                {
+                    goto Retry;
+                }
+            }
+            finally
+            {
+                foreach (var file in files)
+                {
+                    googleAI.DeleteFile(file.Value);
+                }
+            }
+            return string.Empty;
+        }
+
+        public async Task<string> OnAskNewContent(string promptAskNewContent, CancellationToken token)
+        {
+            int i = 1;
+            Retry:
+            try
+            {
+                var content = new GenerateContentRequest(promptAskNewContent);
+                foreach (var file in files)
+                {
+                    content.AddMedia(file.Key);
                 }
                 var responseStream = model.GenerateContentStream(content);
                 StringBuilder response = new StringBuilder();
@@ -138,27 +215,23 @@ namespace AutoGenerateContent.Services
                     response.Append(stream.Text);
                     WeakReferenceMessenger.Default.Send<UpdateHtml>(new(response.ToString(), token));
                 }
-
-                model.ListFiles().ContinueWith(t =>
-                {
-                    foreach (var file in t.Result.Files)
-                    {
-                        model.DeleteFile(file.Name);
-                    }
-                    
-                    foreach (var file in summaryContents)
-                    {
-                        if (File.Exists(file))
-                            File.Delete(file);
-                    }
-                });
-
-                var html = GetHtmlRegex().Matches(response.ToString().Replace("\\u003C", "<").Replace("\\n", "").Replace("\n", "")).LastOrDefault();
-                return html?.Value;
+                return response.ToString();
             }
             catch (Exception ex)
             {
-
+                await Task.Delay(2000 * i);
+                i++;
+                if (i < 5)
+                {
+                    goto Retry;
+                }
+            }
+            finally
+            {
+                foreach (var file in files)
+                {
+                    googleAI.DeleteFile(file.Value);
+                }
             }
             return string.Empty;
         }
@@ -171,5 +244,6 @@ namespace AutoGenerateContent.Services
 
         [GeneratedRegex(@"<h1\b[^>]*>(.*?)<\/h1>(?!.*<h1\b)")]
         private static partial Regex GetH1Regex();
+
     }
 }

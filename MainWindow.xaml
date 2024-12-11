@@ -81,27 +81,30 @@
     </Window.Resources>
 
     <DockPanel LastChildFill="True">
-        <StackPanel DockPanel.Dock="Left" Width="350">
-            <local:SideBar Margin="10"/>
+        <ScrollViewer>
+            <StackPanel DockPanel.Dock="Left" Width="350">
+                <local:SideBar Margin="10"/>
 
-            <GroupBox Margin="10" Padding="5">
-                <GroupBox.Header>
-                    <TextBlock Text="Option" />
-                </GroupBox.Header>
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <Label Content="Loop:"/>
-                        <TextBox Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                                 TextAlignment="Right" Margin="5,0,0,5" Height="25" Width="35" 
-                                 Padding="3"
-                                 VerticalContentAlignment="Center"
-                                 PreviewTextInput="PreviewTextInput"/>
+                <GroupBox Margin="10" Padding="5">
+                    <GroupBox.Header>
+                        <TextBlock Text="Option" />
+                    </GroupBox.Header>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Label Content="Loop:"/>
+                            <TextBox Text="{Binding LoopCount, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                         TextAlignment="Right" Margin="5,0,0,5" Height="25" Width="35" 
+                         Padding="3"
+                         VerticalContentAlignment="Center"
+                         PreviewTextInput="PreviewTextInput"/>
+                        </StackPanel>
+
+                        <ToggleButton Command="{Binding StartCommand}" Style="{StaticResource ToggleStartButton}" />
                     </StackPanel>
-
-                    <ToggleButton Command="{Binding StartCommand}" Style="{StaticResource ToggleStartButton}" />
-                </StackPanel>
-            </GroupBox>
-        </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+        
 
         <Separator BorderThickness="2" BorderBrush="Black" Margin="0,20">
             <Separator.LayoutTransform>

@@ -1,57 +1,49 @@
-﻿using AutoGenerateContent.Interface;
+﻿using AutoGenerateContent.Event;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace AutoGenerateContent.Services
 {
-    public enum ProcessMode
+    public class ProcessService(GeminiApiProcessService _geminiApi, ChatGptWebProcessService _chatGptWeb)
     {
-        ChatGptWeb,
-        GeminiApi
-    }
-
-    public class ProcessService(IServiceProvider serviceProvider) : IProcessService
-    {
-        ProcessMode? _mode;
-        IProcessService _chatGptWeb;
-        IProcessService _geminiApi;
-        IProcessService _processService
+        public Task OnAskForHtml(string promptText, CancellationToken token)
         {
-            get
-            {
-                return _mode switch
-                {
-                    ProcessMode.GeminiApi => _geminiApi ??= serviceProvider.GetRequiredService<GeminiApiProcessService>(),
-
-                    _ => _chatGptWeb ??= serviceProvider.GetRequiredService<ChatGptWebProcessService>(),
-                };
-            }
+            string newContent = string.Format("Follow this context, update to html web page format: {0}", promptText);
+            WeakReferenceMessenger.Default.Send<AskChatGpt>(new(newContent, token));
+            return Task.CompletedTask;
         }
 
-        public void UpdateMode(ProcessMode? mode)
+        public Task<string> OnAskTitle(string intro, CancellationToken token) => _geminiApi.OnAskTitle(intro, token);
+        public Task<string> OnAskHeading(string promptHeading, string heading, CancellationToken token) => _geminiApi.OnAskHeading(promptHeading, heading, token);
+
+        public Task OnFinish() => _geminiApi.OnFinish();
+
+        public Task OnIdle() => _geminiApi.OnIdle();
+
+        public Task OnIntro(string intro, CancellationToken token)
         {
-            _mode = mode;
+            return _geminiApi.OnIntro(intro, token);
         }
 
-        public Task<string> OnAskChatGpt(string promptText, string googleContents, CancellationToken token) => _processService.OnAskChatGpt(promptText, googleContents, token);
+        public Task OnReadHtmlContent(string url, CancellationToken token)
+        {
+            return _geminiApi.OnReadHtmlContent(url, token);
+        }
 
-        public Task<string> OnAskTitle(string intro, CancellationToken token) => _processService.OnAskTitle(intro, token);
+        public Task<bool> OnSearchImage(string searchImageText, string htmlContent, CancellationToken token) => _chatGptWeb.OnSearchImage(searchImageText, htmlContent, token);
 
-        public Task OnFinish() => _processService.OnFinish();
+        public Task OnStart(string apiKey = null) => _geminiApi.OnStart(apiKey);
 
-        public Task OnIdle() => _processService.OnIdle();
+        public async Task<string> OnAskNewContent(string promptAskNewContent, CancellationToken token)
+        {
+            return await _geminiApi.OnAskNewContent(promptAskNewContent, token);
+        }
 
-        public Task<bool> OnIntro(string intro, CancellationToken token) => _processService.OnIntro(intro, token);
-
-        public Task<string> OnReadHtmlContent(string url, List<string> GoogleUrls, List<string> GoogleContents, CancellationToken token) => _processService.OnReadHtmlContent(url,  GoogleUrls, GoogleContents, token);
-
-        public Task<bool> OnSearchImage(string searchImageText, string htmlContent, CancellationToken token) => _processService.OnSearchImage(searchImageText, htmlContent, token);
-
-        public Task OnSearchKeyword() => _processService.OnSearchKeyword();
-
-        public Task OnStart(string apiKey = null) => _processService.OnStart(apiKey);
-
-        public Task<string> OnSummaryContent(string promptSummary, List<string> summaryContents, CancellationToken token) => _processService.OnSummaryContent(promptSummary, summaryContents, token);
+        public async Task<string> OnAskFinalHtml(string htmlOriginal, CancellationToken token)
+        {
+            return await _geminiApi.OnAskFinalHtml(htmlOriginal, token);
+        }
     }
 }

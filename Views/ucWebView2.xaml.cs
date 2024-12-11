@@ -12,6 +12,7 @@ using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Windows.Controls;
+using static Google.Apis.Requests.BatchRequest;
 
 namespace AutoGenerateContent.Views
 {
@@ -153,7 +154,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                                     let links = document.querySelectorAll('a');
                                     let hrefs = Array.from(links)
                                         .map(a => a.href)
-                                        .filter(href => !href.includes('google'));
+                                        .filter(href => !href.includes('google') && !href.includes('-'));
                                     hrefs;";
 
                     await webView.CoreWebView2.ExecuteScriptAsync(script).ContinueWith(async t =>
@@ -267,7 +268,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
 
                     if (token.IsCancellationRequested == false)
                     {
-                        await Task.Delay(r.Next(800, 1300), token);
+                        await Task.Delay(r.Next(1500, 2000), token);
                         await InsertPromptAndSubmit(prompt, guid);
                     }
                 }
@@ -289,7 +290,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
 
                 async Task ProcessMessage(CancellationToken token)
                 {
-                    int retry = 5;
+                    int retry = 3;
                 TRY_AGAIN:
                     await Task.Delay(1000);
                     if (token.IsCancellationRequested == false)
@@ -306,28 +307,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                             {
                                 switch (_viewModel.StateMachine.State)
                                 {
-                                    case State.AskChatGpt:
-                                        guid = "Finihshed";
-                                        if (_viewModel.GoogleContents.Count > 0)
-                                        {
-                                            if (retry > 0)
-                                            {
-                                                _viewModel.SummaryContents.Add(text);
-                                            }
-                                            _viewModel.GoogleContents.RemoveAt(0);
-                                        }
-                                        if (_viewModel.StateMachine.CanFire(ViewModel.Trigger.Loop))
-                                        {
-                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Loop);
-                                        }
-                                        break;
-
-                                    case State.Intro:
-                                        guid = "Finihshed";
-                                        await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
-                                        break;
-
-                                    case State.SummaryContent:
+                                    case State.AskNewContent:
                                         var html = GetHtmlRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
                                         Log.Logger.Information(html?.Value);
                                         if (string.IsNullOrWhiteSpace(html?.Value) == false)
@@ -335,6 +315,11 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                                             guid = "Finihshed";
                                             await Task.Delay(r.Next(200, 500));
                                             _viewModel.HtmlContent = html.Value;
+                                            _viewModel.Heading = GetH2Regex().Matches(_viewModel.HtmlContent).Select(x => x.Value).ToList();
+                                            if(_viewModel.Heading.Count == 1)
+                                            {
+                                                _viewModel.Heading = new Regex(@"<h3.*?>.+?</h3>").Matches(_viewModel.HtmlContent).Select(x => x.Value).ToList();
+                                            }
                                             await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
                                         }
                                         else
@@ -343,6 +328,49 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                                         }
                                         break;
 
+
+                                    case State.AskHeading:
+                                        var htmlHeading = GetHtmlRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
+                                        Log.Logger.Information(htmlHeading?.Value);
+                                        if (string.IsNullOrWhiteSpace(htmlHeading?.Value) == false)
+                                        {
+                                            guid = "Finihshed";
+                                            await Task.Delay(r.Next(200, 500));
+                                            var htmlDoc = new HtmlDocument();
+                                            htmlDoc.LoadHtml(htmlHeading.Value);
+                                            var newHeading = htmlDoc.DocumentNode.SelectSingleNode("//body");
+                                            var unwantedNodes = newHeading.SelectNodes("//header | //footer");
+                                            if (unwantedNodes != null)
+                                            {
+                                                foreach (var node in unwantedNodes)
+                                                {
+                                                    node.Remove();
+                                                }
+                                            }
+
+                                            var first = _viewModel.Heading.FirstOrDefault();
+                                            var second = _viewModel.Heading.Skip(1).FirstOrDefault();
+                                            string oldText = string.Empty;
+                                            try
+                                            {
+                                                oldText = _viewModel.HtmlContent.Substring(_viewModel.HtmlContent.IndexOf(first) + first.Length,
+                                                    ((second is null || _viewModel.HtmlContent.IndexOf(second) == -1) ? _viewModel.HtmlContent.LastIndexOf("</body>") : _viewModel.HtmlContent.IndexOf(second)) - _viewModel.HtmlContent.IndexOf(first) - first.Length);
+                                            }
+                                            catch
+                                            {
+
+                                            }
+                                            _viewModel.HtmlContent = _viewModel.HtmlContent.Replace(oldText, newHeading.InnerHtml.Trim());
+                                            WeakReferenceMessenger.Default.Send<UpdateHtml>(new(_viewModel.HtmlContent, token));
+
+                                            _viewModel.Heading.RemoveAt(0);
+                                            await _viewModel.StateMachine.FireAsync(Trigger.Loop);
+                                        }
+                                        else
+                                        {
+                                            goto TRY_AGAIN;
+                                        }
+                                        break;
 
                                     case State.AskTitle:
                                         var title = GetTitleRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
@@ -355,7 +383,27 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                                             var h1Title = GetH1Regex().Match(_viewModel.HtmlContent);
                                             _viewModel.HtmlContent = _viewModel.HtmlContent.Replace(oldTitle.Value, title?.Value).Replace(h1Title.Value, title?.Value.Replace("title", "h1"));
                                             await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                        }
+                                        else if (retry == 0)
+                                        {
+                                            await _viewModel.StateMachine.FireAsync(ViewModel.Trigger.Next);
+                                        }
+                                        else
+                                        {
+                                            goto TRY_AGAIN;
+                                        }
+                                        break;
 
+
+                                    case State.SearchImage:
+                                        var finalHtml = GetHtmlRegex().Matches(text.Replace("\\u003C", "<").Replace("\\n", "")).LastOrDefault();
+                                        Log.Logger.Information(finalHtml?.Value);
+                                        if (string.IsNullOrWhiteSpace(finalHtml?.Value) == false)
+                                        {
+                                            guid = "Finihshed";
+                                            await Task.Delay(r.Next(200, 500));
+                                            _viewModel.HtmlContent = finalHtml.Value;
+                                            WeakReferenceMessenger.Default.Send<SearchImage>(new(new(_viewModel.Sidebar.SelectedConfig.SearchImageText, _viewModel.HtmlContent), token));
                                         }
                                         else
                                         {
@@ -381,7 +429,7 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
                 {
                     await ClickButtonSkipLogin();
                     await CloseDialogLogin();
-                    await webView.ExecuteScriptAsync($@"document.querySelector('div[id=""prompt-textarea""]').innerHTML='{HttpUtility.HtmlEncode(prompt)}';");
+                    await webView.ExecuteScriptAsync($@"document.querySelector('div[id=""prompt-textarea""]').innerHTML='{prompt.Replace("\n", "<br>")}';");
 
                     await CloseDialogLogin();
                     await webView.ExecuteScriptAsync($@"document.querySelector('button[data-testid=""send-button""]').click();");
@@ -447,7 +495,10 @@ webView.CoreWebView2InitializationCompleted += WebView_CoreWebView2Initializatio
         [GeneratedRegex(@"<title\b[^>]*>([^<]*)<\/title>(?!.*<\/title>)")]
         private static partial Regex GetTitleRegex();
 
-        [GeneratedRegex(@"<h1\b[^>]*>(.*?)<\/h1>(?!.*<h1\b)")]
+        [GeneratedRegex(@"<h1.*?>.+?</h1>")]
         private static partial Regex GetH1Regex();
+
+        [GeneratedRegex(@"<h2.*?>.+?</h2>")]
+        private static partial Regex GetH2Regex();
     }
 }

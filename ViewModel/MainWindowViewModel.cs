@@ -3,10 +3,14 @@ using AutoGenerateContent.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using HtmlAgilityPack;
 using Stateless;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Windows;
+using static Google.Apis.Requests.BatchRequest;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace AutoGenerateContent.ViewModel
@@ -46,6 +50,8 @@ namespace AutoGenerateContent.ViewModel
         public List<string> GoogleContents = [];
 
         public List<string> SummaryContents = [];
+
+        public List<string> Heading = [];
 
         public MainWindowViewModel(SideBarViewModel sideBarViewModel, ProcessService processService)
         {
@@ -98,18 +104,18 @@ namespace AutoGenerateContent.ViewModel
 
             StateMachine.Configure(State.Intro)
                 .PermitReentryIf(Trigger.Loop, () => !tokenSource.IsCancellationRequested)
-                .PermitIf(Trigger.Next, State.AskChatGpt, () => !tokenSource.IsCancellationRequested)
+                .PermitIf(Trigger.Next, State.AskNewContent, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnIntro);
 
-            StateMachine.Configure(State.AskChatGpt)
-                .PermitReentryIf(Trigger.Loop, () => !tokenSource.IsCancellationRequested)
-                .PermitIf(Trigger.Next, State.SummaryContent, () => !tokenSource.IsCancellationRequested)
-                .OnEntryAsync(OnAskChatGpt);
+            StateMachine.Configure(State.AskNewContent)
+                .PermitIf(Trigger.Next, State.AskHeading, () => !tokenSource.IsCancellationRequested)
+                .OnEntryAsync(OnAskNewContent);
 
-            StateMachine.Configure(State.SummaryContent)
+            StateMachine.Configure(State.AskHeading)
+                .PermitReentryIf(Trigger.Loop, () => !tokenSource.IsCancellationRequested)
                 .PermitIf(Trigger.Next, State.AskTitle, () => !tokenSource.IsCancellationRequested)
-                .OnEntryAsync(OnSummaryContent);
-            
+                .OnEntryAsync(OnAskHeading);
+
             StateMachine.Configure(State.AskTitle)
                 .PermitIf(Trigger.Next, State.SearchImage, () => !tokenSource.IsCancellationRequested)
                 .OnEntryAsync(OnAskTitle);
@@ -144,7 +150,6 @@ namespace AutoGenerateContent.ViewModel
 
         private async Task OnStart()
         {
-            _processService.UpdateMode(Sidebar.SelectedConfig.Mode);
             await tokenSource.CancelAsync();
             tokenSource = new CancellationTokenSource();
             CancellationToken token = tokenSource.Token;
@@ -171,64 +176,22 @@ namespace AutoGenerateContent.ViewModel
             CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             List<Task> tasks = [];
-            while (GoogleContents.Count < Sidebar.SelectedConfig.NumberUrls && GoogleUrls.Count > 0)
+            foreach (var url in GoogleUrls.Take(5))
             {
-                foreach (var url in GoogleUrls.Take(5))
-                {
-                    tasks.Add(_processService.OnReadHtmlContent(url, GoogleUrls, GoogleContents, token).ContinueWith(t =>
-                    {
-                        var cleanedContent = t.Result;
-                        GoogleUrls.Remove(url);
-                        if (string.IsNullOrWhiteSpace(cleanedContent) == false)
-                        {
-                            if (cleanedContent.Length > 20000)
-                            {
-                                cleanedContent = $"{cleanedContent[..20000]}. Reference: {url}";
-                            }
-                            GoogleContents.Add(cleanedContent);
-                        }
-                    }));
-                }
-                Task.WaitAll([.. tasks], token);
+                tasks.Add(_processService.OnReadHtmlContent(url, token));
             }
-            GoogleContents = GoogleContents.Take(Sidebar.SelectedConfig.NumberUrls).ToList();
+            Task.WaitAll([.. tasks], token);
             await StateMachine.FireAsync(Trigger.Next, token);
         }
 
-        private async Task OnAskChatGpt()
-        {
-            CancellationToken token = tokenSource.Token;
-            OnPropertyChanged(nameof(StateMachine));
-            if (GoogleContents.Count > 0)
-            {
-                string content = await _processService.OnAskChatGpt(Sidebar.SelectedConfig.PromptText, GoogleContents.FirstOrDefault(), token);
-                if (string.IsNullOrWhiteSpace(content) == false)
-                {
-                    SummaryContents.Add(content);
-                    GoogleContents.RemoveAt(0);
-                    if (StateMachine.CanFire(Trigger.Loop))
-                    {
-                        await StateMachine.FireAsync(Trigger.Loop);
-                    }
-                }
-            }
-            else
-            {
-                await StateMachine.FireAsync(Trigger.Next);
-            }
-        }
-        
         private async Task OnIntro()
         {
             CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptIntro) == false)
             {
-                bool finish = await _processService.OnIntro(Sidebar.SelectedConfig.PromptIntro, token);
-                if (finish)
-                {
-                    await StateMachine.FireAsync(ViewModel.Trigger.Next);
-                }
+                await _processService.OnIntro(Sidebar.SelectedConfig.PromptIntro, token);
+                await StateMachine.FireAsync(ViewModel.Trigger.Next);
             }
             else
             {
@@ -236,21 +199,46 @@ namespace AutoGenerateContent.ViewModel
             }
         }
         
-        private async Task OnSummaryContent()
+        private async Task OnAskNewContent()
         {
             CancellationToken token = tokenSource.Token;
             OnPropertyChanged(nameof(StateMachine));
-            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptSummary) == false)
+            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptAskNewContent) == false)
             {
-                var html = await _processService.OnSummaryContent(Sidebar.SelectedConfig.PromptSummary, SummaryContents, token);
+                var html = await _processService.OnAskNewContent(Sidebar.SelectedConfig.PromptAskNewContent, token);
                 if (string.IsNullOrWhiteSpace(html) == false)
                 {
                     HtmlContent = html;
-                    await StateMachine.FireAsync(ViewModel.Trigger.Next);
+                    await _processService.OnAskForHtml(HtmlContent, token);
+                }
+                else
+                {
+                    MessageBox.Show("Error from Gemini, try later");
                 }
             }
         }
 
+        private async Task OnAskHeading()
+        {
+            CancellationToken token = tokenSource.Token;
+            OnPropertyChanged(nameof(StateMachine));
+            if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.PromptHeading) == false)
+            {
+                if (Heading.Count > 0)
+                {
+                    var newHeading = await _processService.OnAskHeading(Sidebar.SelectedConfig.PromptHeading, Heading.FirstOrDefault(), token);
+                    if (string.IsNullOrWhiteSpace(newHeading) == false)
+                    {
+                        await _processService.OnAskForHtml(newHeading, token);
+                    }
+                }
+                else
+                {
+                    await StateMachine.FireAsync(Trigger.Next);
+                }
+            }
+        }
+        
         private async Task OnAskTitle()
         {
             CancellationToken token = tokenSource.Token;
@@ -260,13 +248,24 @@ namespace AutoGenerateContent.ViewModel
                 var title = await _processService.OnAskTitle(Sidebar.SelectedConfig.PromptTitle, token);
                 if (string.IsNullOrWhiteSpace(title) == false)
                 {
-                    if (title != "finish")
+                    var htmlDoc = new HtmlDocument();
+                    htmlDoc.LoadHtml(title);
+                    if (htmlDoc.ParseErrors.Count() > 0)
+                    {
+                        await _processService.OnAskForHtml(title, token);
+                        return;
+                    }
+                    else
                     {
                         var oldTitle = GetTitleRegex().Match(HtmlContent);
                         var h1Title = GetH1Regex().Match(HtmlContent);
                         HtmlContent = HtmlContent.Replace(oldTitle.Value, title).Replace(h1Title.Value, title.Replace("title", "h1"));
+                        await StateMachine.FireAsync(ViewModel.Trigger.Next);
                     }
-                    await StateMachine.FireAsync(ViewModel.Trigger.Next);
+                }
+                else
+                {
+                    await StateMachine.FireAsync(Trigger.Next);
                 }
             }
         }
@@ -277,6 +276,15 @@ namespace AutoGenerateContent.ViewModel
             OnPropertyChanged(nameof(StateMachine));
             if (string.IsNullOrWhiteSpace(Sidebar.SelectedConfig.SearchImageText) == false)
             {
+                //var newHtmlContent = await _processService.OnAskFinalHtml(HtmlContent, token);
+                //var htmlDoc = new HtmlDocument();
+                //htmlDoc.LoadHtml(newHtmlContent);
+                //if (htmlDoc.ParseErrors.Count() > 0)
+                {
+                    string prompt = "Đọc html, viết lại 1 hoàn chỉnh trang web, fix các lỗi heading, lỗi html cho tôi. Lưu ý phải giữ lại toàn bộ các nội dung của trang web, chỉ chỉnh sửa format cho đúng: {0}";
+                    await _processService.OnAskForHtml(string.Format(prompt, HtmlContent), token);
+                    return;
+                }
                 var result = await _processService.OnSearchImage(Sidebar.SelectedConfig.SearchImageText, HtmlContent, token);
                 if (result)
                 {
@@ -334,9 +342,9 @@ namespace AutoGenerateContent.ViewModel
         SearchKeyword,
         ReadHtmlContent,
         Intro,
-        AskChatGpt,
-        SummaryContent,
+        AskNewContent,
         AskTitle,
+        AskHeading,
         SearchImage,
         Finish
     }

@@ -1,5 +1,4 @@
 ﻿using AutoGenerateContent.Event;
-using AutoGenerateContent.Interface;
 using CommunityToolkit.Mvvm.Messaging;
 using HtmlAgilityPack;
 using System.Net.Http;
@@ -7,7 +6,7 @@ using System.Web;
 
 namespace AutoGenerateContent.Services
 {
-    internal class ChatGptWebProcessService : IProcessService
+    public class ChatGptWebProcessService
     {
         public Task<string> OnAskChatGpt(string promptText, string googleContents, CancellationToken token)
         {   
@@ -18,6 +17,12 @@ namespace AutoGenerateContent.Services
         public Task<string> OnAskTitle(string title, CancellationToken token)
         {
             WeakReferenceMessenger.Default.Send<AskChatGpt>(new(title, token));
+            return Task.FromResult(string.Empty);
+        }
+        
+        public Task<string> OnAskHeading(string promptHeading, string heading, CancellationToken token)
+        {
+            WeakReferenceMessenger.Default.Send<AskChatGpt>(new(heading, token));
             return Task.FromResult(string.Empty);
         }
 

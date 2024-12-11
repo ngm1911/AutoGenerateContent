@@ -26,16 +26,16 @@ namespace AutoGenerateContent.Models
         string? promptText;
 
         [ObservableProperty]
-        string? promptSummary;
+        string? promptAskNewContent;
 
         [ObservableProperty]
         string? searchImageText;
         
         [ObservableProperty]
         string? promptTitle;
-
+        
         [ObservableProperty]
-        ProcessMode? mode;
+        string? promptHeading;
 
         [NotMapped]
         public bool IsChanged = false;

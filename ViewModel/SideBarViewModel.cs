@@ -73,10 +73,10 @@ namespace AutoGenerateContent.ViewModel
                     NumberUrls = SelectedConfig.NumberUrls,
                     PromptIntro = SelectedConfig.PromptIntro,
                     PromptText = SelectedConfig.PromptText,
-                    PromptSummary = SelectedConfig.PromptSummary,
+                    PromptAskNewContent = SelectedConfig.PromptAskNewContent,
                     SearchImageText = SelectedConfig.SearchImageText,
                     PromptTitle = SelectedConfig.PromptTitle,
-                    Mode = SelectedConfig.Mode,
+                    PromptHeading = SelectedConfig.PromptHeading,
                 };
                 await _context.Configs.AddAsync(newConfig);
             }

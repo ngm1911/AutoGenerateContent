@@ -1,5 +1,4 @@
 ﻿using AutoGenerateContent.DatabaseContext;
-using AutoGenerateContent.Interface;
 using AutoGenerateContent.Services;
 using AutoGenerateContent.ViewModel;
 using Microsoft.EntityFrameworkCore;
